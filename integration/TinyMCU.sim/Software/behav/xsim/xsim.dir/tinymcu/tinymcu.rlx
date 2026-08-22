@@ -1,0 +1,14 @@
+0.7
+2020.2
+May 22 2024
+18:54:44
+/home/daniel/Projects/CPU/rtl/tinymcu_addr_decoder.vhd,1786894337,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,,,tinymcu_addr_decoder,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,1786892401,vhdl2008,/home/daniel/Projects/CPU/sim/tinymcu_tb_software.vhd,,,tinymcu_cpu,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_cpu_alu.vhd,1786797325,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,,,tinymcu_cpu_alu,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_cpu_control.vhd,1786891267,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,,,tinymcu_cpu_control,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_cpu_regfile.vhd,1786797338,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,,,tinymcu_cpu_regfile,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_imem.vhd,1786888599,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,,,tinymcu_imem,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_imem_bootrom.vhd,1786896368,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_imem.vhd,,,tinymcu_imem_bootrom,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_pkg.vhd,1786892344,vhdl2008,/home/daniel/Projects/CPU/rtl/tinymcu_addr_decoder.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_cpu_alu.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_cpu_control.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_cpu_regfile.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_imem.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_imem_bootrom.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_sram.vhd;/home/daniel/Projects/CPU/rtl/tinymcu_sram_generic.vhd;/home/daniel/Projects/CPU/sim/tinymcu_tb_software.vhd,,,tinymcu_pkg,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_sram.vhd,1786894388,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd,,,tinymcu_sram,,,,,,,,
+/home/daniel/Projects/CPU/rtl/tinymcu_sram_generic.vhd,1786892735,vhdl,/home/daniel/Projects/CPU/rtl/tinymcu_sram.vhd,,,tinymcu_sram_generic,,,,,,,,

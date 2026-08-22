@@ -1,0 +1,27 @@
+Vivado Simulator v2024.1
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: /home/daniel/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab --incr --debug typical --relax --mt 8 -L xil_defaultlib -L tinymcu -L secureip --snapshot tb_cpu_behav xil_defaultlib.tb_cpu -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling package std.standard
+Compiling package std.textio
+Compiling package ieee.std_logic_1164
+Compiling package ieee.numeric_std
+Compiling package std.env
+Compiling package tinymcu.tinymcu_pkg
+Compiling architecture tinymcu_imem_bootrom_rtl of entity tinymcu.tinymcu_imem_bootrom [tinymcu_imem_bootrom_default]
+Compiling architecture tinymcu_imem_rtl of entity tinymcu.tinymcu_imem [tinymcu_imem_default]
+Compiling architecture tinymcu_cpu_control_rtl of entity tinymcu.tinymcu_cpu_control [tinymcu_cpu_control_default]
+Compiling architecture tinymcu_cpu_regfile_rtl of entity tinymcu.tinymcu_cpu_regfile [tinymcu_cpu_regfile_default]
+Compiling architecture tinymcu_cpu_alu_rtl of entity tinymcu.tinymcu_cpu_alu [tinymcu_cpu_alu_default]
+Compiling architecture tinymcu_addr_decoder_rtl of entity tinymcu.tinymcu_addr_decoder [\tinymcu_addr_decoder(ram_addr_w...]
+Compiling architecture tinymcu_sram_generic_rtl of entity tinymcu.tinymcu_sram_generic [\tinymcu_sram_generic(addr_width...]
+Compiling architecture tinymcu_sram_rtl of entity tinymcu.tinymcu_sram [\tinymcu_sram(addr_width=8)\]
+Compiling architecture tinymcu_cpu_rtl of entity tinymcu.tinymcu_cpu [\tinymcu_cpu(ram_addr_width=8,tr...]
+Compiling architecture sim of entity xil_defaultlib.tb_cpu
+Built simulation snapshot tb_cpu_behav

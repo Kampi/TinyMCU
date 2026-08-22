@@ -1,0 +1,22 @@
+# compile vhdl design source files
+vhdl2008 tinymcu  \
+"../../../../../rtl/tinymcu_pkg.vhd" \
+
+vhdl tinymcu  \
+"../../../../../rtl/tinymcu_addr_decoder.vhd" \
+"../../../../../rtl/tinymcu_cpu_alu.vhd" \
+"../../../../../rtl/tinymcu_cpu_control.vhd" \
+"../../../../../rtl/tinymcu_cpu_regfile.vhd" \
+"../../../../../rtl/tinymcu_imem_bootrom.vhd" \
+"../../../../../rtl/tinymcu_imem.vhd" \
+"../../../../../rtl/tinymcu_sram_generic.vhd" \
+"../../../../../rtl/tinymcu_sram.vhd" \
+
+vhdl2008 tinymcu  \
+"../../../../../rtl/tinymcu_cpu.vhd" \
+
+vhdl xil_defaultlib  \
+"../../../../../sim/tinymcu_tb_software.vhd" \
+
+# Do not sort compile order
+nosort

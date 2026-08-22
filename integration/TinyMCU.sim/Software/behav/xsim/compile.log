@@ -1,0 +1,13 @@
+INFO: [VRFC 10-163] Analyzing VHDL file "/home/daniel/Projects/CPU/rtl/tinymcu_addr_decoder.vhd" into library tinymcu
+INFO: [VRFC 10-3107] analyzing entity 'tinymcu_addr_decoder'
+INFO: [VRFC 10-163] Analyzing VHDL file "/home/daniel/Projects/CPU/rtl/tinymcu_imem_bootrom.vhd" into library tinymcu
+INFO: [VRFC 10-3107] analyzing entity 'tinymcu_imem_bootrom'
+INFO: [VRFC 10-163] Analyzing VHDL file "/home/daniel/Projects/CPU/rtl/tinymcu_imem.vhd" into library tinymcu
+INFO: [VRFC 10-3107] analyzing entity 'tinymcu_imem'
+INFO: [VRFC 10-163] Analyzing VHDL file "/home/daniel/Projects/CPU/rtl/tinymcu_sram.vhd" into library tinymcu
+INFO: [VRFC 10-3107] analyzing entity 'tinymcu_sram'
+WARNING: [VRFC 10-3093] actual for formal port 'en_i' is neither a static name nor a globally static expression [/home/daniel/Projects/CPU/rtl/tinymcu_sram.vhd:71]
+INFO: [VRFC 10-163] Analyzing VHDL file "/home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd" into library tinymcu
+INFO: [VRFC 10-3107] analyzing entity 'tinymcu_cpu'
+INFO: [VRFC 10-163] Analyzing VHDL file "/home/daniel/Projects/CPU/sim/tinymcu_tb_software.vhd" into library xil_defaultlib
+INFO: [VRFC 10-3107] analyzing entity 'tb_cpu'

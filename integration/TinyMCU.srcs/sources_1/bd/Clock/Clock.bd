@@ -1,0 +1,153 @@
+{
+  "design": {
+    "design_info": {
+      "boundary_crc": "0xA9AC305B3A6DD474",
+      "device": "xc7z010clg400-1",
+      "gen_directory": "../../../../TinyMCU.gen/sources_1/bd/Clock",
+      "name": "Clock",
+      "rev_ctrl_bd_flag": "RevCtrlBdOff",
+      "synth_flow_mode": "Hierarchical",
+      "tool_version": "2024.1",
+      "validated": "true"
+    },
+    "design_tree": {
+      "ClockingWizard": ""
+    },
+    "ports": {
+      "ClockIn": {
+        "type": "clk",
+        "direction": "I",
+        "parameters": {
+          "ASSOCIATED_RESET": {
+            "value": "Reset"
+          },
+          "CLK_DOMAIN": {
+            "value": "Clock_clk_100MHz",
+            "value_src": "default"
+          },
+          "FREQ_HZ": {
+            "value": "125000000"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "default"
+          }
+        }
+      },
+      "ClockOut": {
+        "type": "clk",
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "/ClockingWizard_clk_out1",
+            "value_src": "ip_prop"
+          },
+          "FREQ_HZ": {
+            "value": "16000000",
+            "value_src": "ip_prop"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "ip_prop"
+          }
+        }
+      },
+      "Reset": {
+        "type": "rst",
+        "direction": "I",
+        "parameters": {
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "POLARITY": {
+            "value": "ACTIVE_HIGH"
+          }
+        }
+      }
+    },
+    "components": {
+      "ClockingWizard": {
+        "vlnv": "xilinx.com:ip:clk_wiz:6.0",
+        "ip_revision": "14",
+        "xci_name": "Clock_clk_wiz_0_0",
+        "xci_path": "ip/Clock_clk_wiz_0_0/Clock_clk_wiz_0_0.xci",
+        "inst_hier_path": "ClockingWizard",
+        "parameters": {
+          "CLKIN1_JITTER_PS": {
+            "value": "80.0"
+          },
+          "CLKOUT1_JITTER": {
+            "value": "180.478"
+          },
+          "CLKOUT1_PHASE_ERROR": {
+            "value": "96.948"
+          },
+          "CLKOUT1_REQUESTED_OUT_FREQ": {
+            "value": "16"
+          },
+          "MMCM_CLKFBOUT_MULT_F": {
+            "value": "8.000"
+          },
+          "MMCM_CLKIN1_PERIOD": {
+            "value": "8.000"
+          },
+          "MMCM_CLKOUT0_DIVIDE_F": {
+            "value": "62.500"
+          },
+          "PRIM_IN_FREQ": {
+            "value": "125"
+          },
+          "RESET_PORT": {
+            "value": "reset"
+          },
+          "RESET_TYPE": {
+            "value": "ACTIVE_HIGH"
+          },
+          "USE_LOCKED": {
+            "value": "false"
+          },
+          "USE_RESET": {
+            "value": "true"
+          }
+        }
+      }
+    },
+    "nets": {
+      "ClockingWizard_clk_out1": {
+        "ports": [
+          "ClockingWizard/clk_out1",
+          "ClockOut"
+        ]
+      },
+      "Reset_1": {
+        "ports": [
+          "Reset",
+          "ClockingWizard/reset"
+        ]
+      },
+      "clk_100MHz_1": {
+        "ports": [
+          "ClockIn",
+          "ClockingWizard/clk_in1"
+        ]
+      }
+    }
+  }
+}

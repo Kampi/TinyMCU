@@ -1,0 +1,195 @@
+Time resolution is 1 ps
+Note: PC=0x00000000  INSTR=0x00000013  nop
+Time: 35 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000000  INSTR=0x20000197  auipc gp,0x20000000
+Time: 45 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000004  INSTR=0x00018193  addi  gp,gp,0
+Time: 55 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000008  INSTR=0x20000117  auipc sp,0x20000000
+Time: 65 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000000C  INSTR=0x3F810113  addi  sp,sp,1016
+Time: 75 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000010  INSTR=0x20000297  auipc t0,0x20000000
+Time: 85 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000014  INSTR=0xFF428293  addi  t0,t0,-12
+Time: 95 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000018  INSTR=0x20000317  auipc t1,0x20000000
+Time: 105 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000001C  INSTR=0xFEC30313  addi  t1,t1,-20
+Time: 115 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000020  INSTR=0x0062D863  bge   t0,t1,0x00000030
+Time: 125 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000024  INSTR=0x00000013  nop
+Time: 135 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000030  INSTR=0x00000297  auipc t0,0x00000000
+Time: 145 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000034  INSTR=0x05428293  addi  t0,t0,84
+Time: 155 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000038  INSTR=0x20000317  auipc t1,0x20000000
+Time: 165 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000003C  INSTR=0xFC830313  addi  t1,t1,-56
+Time: 175 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000040  INSTR=0x20000397  auipc t2,0x20000000
+Time: 185 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000044  INSTR=0xFC438393  addi  t2,t2,-60
+Time: 195 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000048  INSTR=0x00735C63  bge   t1,t2,0x00000060
+Time: 205 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000004C  INSTR=0x0002AE03  lw    t3,0(t0)
+Time: 215 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000050  INSTR=0x01C32023  sw    t3,0(t1)
+Time: 225 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000054  INSTR=0x00428293  addi  t0,t0,4
+Time: 235 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000058  INSTR=0x00430313  addi  t1,t1,4
+Time: 245 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000005C  INSTR=0xFEDFF06F  jal   zero,0x00000048
+Time: 255 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000060  INSTR=0x00000013  nop
+Time: 265 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000048  INSTR=0x00735C63  bge   t1,t2,0x00000060
+Time: 275 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000004C  INSTR=0x00000013  nop
+Time: 285 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000060  INSTR=0x00000097  auipc ra,0x00000000
+Time: 295 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000064  INSTR=0x00C080E7  jalr  ra,ra,12
+Time: 305 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000068  INSTR=0x00000013  nop
+Time: 315 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000006C  INSTR=0x200007B7  lui   a5,0x20000000
+Time: 325 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000070  INSTR=0x0007A783  lw    a5,0(a5)
+Time: 335 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000074  INSTR=0x20000737  lui   a4,0x20000000
+Time: 345 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000078  INSTR=0x00A78793  addi  a5,a5,10
+Time: 355 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x0000007C  INSTR=0x00F72823  sw    a5,16(a4)
+Time: 365 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 375 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 385 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 395 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 405 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 415 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 425 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 435 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 445 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 455 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 465 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 475 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 485 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 495 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 505 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 515 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 525 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 535 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 545 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 555 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 565 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 575 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 585 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 595 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 605 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 615 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 625 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 635 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 645 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 655 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 665 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 675 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 685 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 695 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 705 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 715 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 725 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 735 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 745 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 755 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 765 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 775 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 785 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 795 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 805 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 815 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 825 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 835 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 845 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 855 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 865 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 875 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 885 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 895 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 905 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 915 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 925 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 935 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 945 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 955 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 965 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 975 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000084  INSTR=0x00000013  nop
+Time: 985 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
+Note: PC=0x00000080  INSTR=0x0000006F  jal   zero,0x00000080
+Time: 995 ns  Iteration: 0  Process: /tb_cpu/dut/trace_gen/line__406  File: /home/daniel/Projects/CPU/rtl/tinymcu_cpu.vhd
