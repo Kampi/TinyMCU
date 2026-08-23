@@ -9,39 +9,11 @@
 -- Module Name: tb_irq - sim
 -- Project Name: TinyMCU
 -- Description:
---   Manual trap/return round-trip check for ext_irq_i. Not wired into the
---   default "make run" (see rtl/Makefile's SIM_SRCS): it needs the ROM to
---   hold a program that sets up mtvec/mstatus.MIE/mie.MEIE and provides a
---   handler, not the asm.py demo program that "make run" regenerates.
---   Switch to it by hand, the same way as tinymcu_tb_software.vhd:
---
---     SIM_SRCS := $(SIM_DIR)/tinymcu_tb_irq.vhd
---
---   Expected ROM layout (word index -> byte address):
---      0: addi x1, x0, 0x40       ; x1 = handler address
---      1: csrrw x0, mtvec, x1     ; mtvec = 0x40
---      2: addi x2, x0, 8          ; x2 = 1<<3 (MIE)
---      3: csrrw x0, mstatus, x2   ; mstatus.MIE = 1
---      4: lui x3, 1               ; x3 = 0x1000
---      5: addi x3, x3, -2048      ; x3 = 0x800 (MEIE)
---      6: csrrw x0, mie, x3       ; mie.MEIE = 1
---      7: loop: addi x7, x7, 1    ; counting loop body
---      8: jal x0, -4              ; back to loop
---      9..15: nop (padding up to the handler address)
---     16: handler: addi x6, x0, 222  ; marker: handler ran
---     17: mret
---
---   Asserts ext_irq_i for one cycle while the loop body is in EX, then
---   checks that the handler ran (x6 = 222) and that the loop resumed
---   after mret instead of restarting or hanging (x7 > 0).
+--  Self-checking testbench for the TinyMCU IRQ and trap logic.
 --
 -- Dependencies:
 --   tinymcu.tinymcu_pkg, tinymcu.tinymcu_cpu
 --
--- Additional Comments:
---   Compiled into the default "work" library, like the other sim/*.vhd
---   testbenches; references the design under test from the "tinymcu"
---   library.
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -88,11 +60,6 @@ begin
         wait for CLK_PERIOD * 3;
         rst <= '0';
 
-        -- Let the 7 setup instructions (mtvec/mstatus/mie writes) run,
-        -- then a few counting-loop iterations, then pulse the external
-        -- IRQ for exactly one cycle. mip's MEIP bit is a live overlay of
-        -- ext_irq_i (level-triggered), so it must drop again before mret
-        -- restores mstatus.MIE, or the core would re-trap instantly.
         wait for CLK_PERIOD * 20;
         report "asserting ext_irq_i now";
         ext_irq <= '1';
@@ -100,7 +67,7 @@ begin
         ext_irq <= '0';
         report "deasserted ext_irq_i";
 
-        -- Handler (2 instructions) + mret + resume; generous margin.
+        -- Handler (2 instructions) + mret + resume
         wait for CLK_PERIOD * 20;
 
         report "x6 (handler marker, expect 222) = " & integer'image(to_integer(unsigned(dbg(6))));

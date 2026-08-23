@@ -9,12 +9,12 @@
 -- Module Name: tinymcu_addr_decoder - tinymcu_addr_decoder_rtl
 -- Project Name: TinyMCU
 -- Description:
---   Address range                 Target        Meaning
+--   Address range                 Target        Description
 --   0x0000_0000 - 0x00FF_FFFF     imem_req_o    Boot ROM + Flash (tinymcu_imem); ROM_BASE and
 --                                               FLASH_BASE both fall inside this one window.
 --   0x0200_0000 - 0x02FF_FFFF     ram_req_o     RAM (tinymcu_sram); RAM_BASE.
 --   0x0400_0000 - 0x04FF_FFFF     periph_req_o  Peripherals (tinymcu_periph.vhd); PERIPHERALS_BASE.
---   Any other address              -            Unmapped: reads as 0
+--   Any other address             -             Unmapped: reads as 0
 --
 -- Dependencies:
 --   tinymcu_pkg
@@ -92,18 +92,18 @@ begin
     -- actually selected before OR-combining, so an unselected (possibly
     -- undriven) target can never corrupt the result.
     response : process (port_rsp, port_sel)
-        variable tmp_v : bus_rsp_t;
+        variable rsp : bus_rsp_t;
     begin
-        tmp_v := BUS_RSP_IDLE;
+        rsp := BUS_RSP_IDLE;
 
         for i in 0 to BUS_MEMBERS - 1 loop
             if port_sel(i) = '1' then
-                tmp_v.data := tmp_v.data or port_rsp(i).data;
-                tmp_v.ack  := tmp_v.ack  or port_rsp(i).ack;
+                rsp.data := rsp.data or port_rsp(i).data;
+                rsp.ack  := rsp.ack  or port_rsp(i).ack;
             end if;
         end loop;
 
-        int_rsp <= tmp_v;
+        int_rsp <= rsp;
     end process;
 
     cpu_rsp_o.data <= int_rsp.data;

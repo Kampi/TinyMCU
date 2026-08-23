@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""RV32I/Zicsr instruction encoders and opcode/CSR-address constants,
-shared by asm.py (demo program) and asm_irq.py (IRQ/MRET round-trip
-program) -- and anything else that needs to hand-assemble a TinyMCU test
-program without pulling in a real assembler toolchain.
+"""RV32I/Zicsr instruction encoders and opcode/CSR-address constants.
 
 Not a general-purpose assembler (no labels, no directives): callers emit
 instructions in program order and compute jump/branch offsets by hand

@@ -34,7 +34,11 @@ entity tinymcu_top is
         rst_i       : in std_logic;
 
         -- GPIO ports
-        gpio_port_a : inout std_logic_vector(3 downto 0)
+        gpio_port_a : inout std_logic_vector(3 downto 0);
+
+        -- UART
+        uart_tx_o   : out std_logic;
+        uart_rx_i   : in  std_logic
     );
 end entity tinymcu_top;
 
@@ -50,6 +54,8 @@ architecture tinymcu_top_rtl of tinymcu_top is
 
     signal IRQ          : std_logic := '0';
     signal ClockOut     : std_logic;
+    signal CTS          : std_logic;
+    signal RTS          : std_logic;
     signal GPIO_Out     : std_logic_vector(31 downto 0);
     signal debug_regs   : reg_array_t;
 
@@ -73,6 +79,10 @@ begin
             rst_i           => rst_i,
             ext_irq_i       => IRQ,
             gpio_port_a     => GPIO_Out,
+            uart_tx_o       => uart_tx_o,
+            uart_rx_i       => uart_rx_i,
+            uart_rts_o      => RTS,
+            uart_cts_i      => CTS,
             debug_regs_o    => debug_regs
         );
 

@@ -1,16 +1,5 @@
 /*
- * TinyMCU minimal demo program (RV32I, freestanding).
- *
- * No libc, no syscalls, no interrupts and nothing beyond plain RV32I is
- * implemented by the core (see README.md "Extensions"), and crt0.s does
- * not install a trap handler. In particular: no M extension, so do not
- * use '*', '/' or '%' on int here. GCC would emit calls to libgcc's
- * software multiply/divide routines (__mulsi3/__divsi3/...), which are
- * not linked in by this minimal, -nostdlib build.
- *
- * Computes a value with a real function call (exercises JAL/JALR and
- * the stack set up by crt0.s) and stores it to a fixed RAM address,
- * then loops forever.
+ * TinyMCU minimal demo program.
  */
 
 volatile const int a = 5;
@@ -26,7 +15,7 @@ static int add(int a, int b) {
  * not an I/O register. */
 static volatile unsigned int *const RESULT = (unsigned int *)0x02000010;
 
-int main(void) {
+int main (void) {
     int b = 10;
 
     *RESULT = (unsigned int)add(a, b);

@@ -10,9 +10,6 @@
  * GPIO port, pin @p i controlled bit-for-bit by the same bit position in
  * every register below.
  *
- * RV32I only (see README.md "Extensions"): every function here uses
- * only shifts/bitwise ops (SLL/SRL, native RV32I instructions), never
- * `*`/`/`/`%`, so nothing here needs libgcc.
  */
 
 #ifndef TINYMCU_GPIO_H

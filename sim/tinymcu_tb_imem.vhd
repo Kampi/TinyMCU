@@ -15,21 +15,9 @@
 --   debug_regs_o port (simulation only; left unconnected in the FPGA top
 --   level).
 --
---   Both the ROM content (rtl/core/tinymcu_imem_bootrom.vhd's PROGRAM constant)
---   and the check(...) calls below are generated from a single source,
---   scripts/asm.py; it defines the program once and writes both the
---   instructions and the checks from that same definition, so they
---   cannot drift out of sync with each other. Re-run scripts/asm.py
---   after changing the program there; do not hand-edit the block between
---   TINYMCU_CHECKS_BEGIN/_END below, it will be overwritten.
---
 -- Dependencies:
 --   tinymcu.tinymcu_pkg, tinymcu.tinymcu_cpu
 --
--- Additional Comments:
---   This file is compiled into the default "work" library (it is
---   verification scaffolding, not an MCU-specific component) and
---   references the design under test from the "tinymcu" library.
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -52,12 +40,6 @@ architecture sim of tb_cpu is
 
     signal dbg_regs : reg_array_t;
 
-    -- to_hex is now shared: see tinymcu_pkg.vhd.
-
-    -- A process-local variable (not a signal): a signal assignment inside
-    -- check() would only become visible after the process next suspends,
-    -- so the "if errors = 0" summary below would read a stale value and
-    -- could print "TEST PASSED" even after a FAIL was just reported.
     procedure check(name : string; actual : word_t; expected : word_t;
                      variable err_count : inout integer) is
     begin

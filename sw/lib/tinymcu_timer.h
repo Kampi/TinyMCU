@@ -8,9 +8,6 @@
  * (that file is the authoritative source; keep this in sync with it by
  * hand, there is no generator for the software side of the memory map).
  *
- * RV32I only (see README.md "Extensions"): every function here uses only
- * shifts/bitwise ops, never `*`/`/`/`%`, so nothing here needs libgcc.
- *
  * The compare interrupt (see tinymcu_timer_irq_enable()) is edge-
  * triggered on COUNTER == COMPARE: it fires once per crossing, not
  * continuously, and does not auto-reset COUNTER on its own -- reset it

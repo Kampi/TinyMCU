@@ -2,30 +2,49 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """Tiny RV32I assembler that defines TinyMCU's hand-assembled demo/test
-program -- and, from that same definition, both places that need to agree
-with it: rtl/core/tinymcu_imem_bootrom.vhd (the ROM content) and
-sim/tinymcu_tb_imem.vhd (the register checks that verify it ran
-correctly). The program is written once, in this file, as emit()/chk()
-calls; the ROM and the testbench are generated from it, so they cannot
-drift apart from each other -- change the program here and re-run, and
-both downstream files stay in sync.
+program.
 
-Instruction encoders and opcode/CSR-address constants live in
-lib/riscv_isa.py (shared with asm_irq.py); see there for encoding details
-and the "not a general-purpose assembler" caveat. chk() calls are placed
-wherever a register's value actually becomes final during emission (which
-is not necessarily where it's first written -- e.g. x1 is set once early
-and then again, incrementally, near the end); generate_checks_block()
-sorts them into register order (x1, x2, ...) for the generated file, so
-call order here only needs to match program order, not presentation order.
-
-Writes into rtl/core/tinymcu_imem_bootrom.vhd's PROGRAM constant (between the
-TINYMCU_PROGRAM_BEGIN/_END markers) and sim/tinymcu_tb_imem.vhd's check()
-calls (between TINYMCU_CHECKS_BEGIN/_END), both via lib/rom_writer.py --
-the same PROGRAM marker scripts/hex2rom.py writes compiled programs to,
-just from hand-assembled instructions instead of an Intel HEX file
-(hex2rom.py has no equivalent for the checks side, since it has no way to
-know what a compiled program's register values are supposed to be).
+    0x00: addi x1, x0, 5
+    0x04: addi x2, x0, 10
+    0x08: add  x3, x1, x2
+    0x0C: sub  x4, x2, x1
+    0x10: lui  x21, 0x02000  (RAM base 0x02000000)
+    0x14: sw   x3, 0(x21)
+    0x18: lw   x5, 0(x21)
+    0x1C: beq  x1, x4, +8
+    0x20: addi x6, x0, 111  (skipped)
+    0x24: addi x7, x0, 42
+    0x28: lui  x8, 0x1
+    0x2C: jal  x9, +8
+    0x30: addi x10, x0, 999 (skipped)
+    0x34: addi x1, x1, 1
+    0x38: addi x11, x0, 0x3C
+    0x3C: jalr x12, x11, 8
+    0x40: addi x13, x0, 777 (skipped)
+    0x44: addi x14, x0, 55  (landing point)
+    0x48: auipc x15, 1
+    0x4C: addi x16, x0, 0xAA
+    0x50: sb   x16, 4(x21)
+    0x54: addi x17, x0, -1
+    0x58: sb   x17, 5(x21)
+    0x5C: lw   x18, 4(x21)
+    0x60: addi x19, x0, 0x3CD
+    0x64: sh   x19, 8(x21)
+    0x68: lw   x20, 8(x21)
+    0x6C: addi x22, x0, 0x123
+    0x70: csrrw x23, mscratch, x22
+    0x74: csrrw x24, mscratch, x0
+    0x78: addi x25, x0, 0xF0
+    0x7C: csrrs x26, mscratch, x25
+    0x80: csrrs x27, mscratch, x0
+    0x84: addi x28, x0, 0x30
+    0x88: csrrc x29, mscratch, x28
+    0x8C: csrrc x30, mscratch, x0
+    0x90: csrrwi x31, mscratch, 5
+    0x94: csrrw x22, mvendorid, x1  (read-only, write ignored)
+    0x98: csrrw x25, marchid, x1  (read-only, write ignored)
+    0x9C: csrrw x28, mimpid, x1  (read-only, write ignored)
+    0xA0: jal  x0, 0 (halt)
 
 Usage:
     asm.py [--vhdl-file PATH] [--tb-file PATH]

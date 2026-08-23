@@ -9,34 +9,27 @@
 -- Module Name: tinymcu_periph_gpio - tinymcu_periph_gpio_rtl
 -- Project Name: TinyMCU
 -- Description:
---   GPIO_BASE..GPIO_END (0x0400_0000..0x0400_00FF
+--  GPIO_BASE..GPIO_END (0x0400_0000..0x0400_00FF)
 --
---   Word offset  Name       R/W  Meaning
---   0            CONFIG     RW   General-purpose config register, no
---                                 bits defined yet; plain read/write
---                                 storage, reserved for future use.
---   1            DDR        RW   Data direction, per pin: 1 = output,
---                                 0 = input.
---   2            PULL_SEL   RW   Pull resistor select, per pin (only
---                                 meaningful combined with PULL_EN):
---                                 1 = pull-up, 0 = pull-down.
---   3            PULL_EN    RW   Pull resistor enable, per pin:
---                                 1 = the pull configured by PULL_SEL is
---                                 active, 0 = floating.
---   4            OUT        RW   Output data, per pin: drives the pin
---                                 when DDR = 1; has no effect on a pin
---                                 configured as input.
---   5            IN         RO   Input data, per pin: the pin's actual
---                                 resolved logic level (normalized to
---                                 '1'/'0' via to_x01, see below),
---                                 regardless of DDR (also readable while
---                                 DDR = 1, to read back what's being
---                                 driven). Writes are ignored.
+--  Word offset     Name            R/W     Meaning
+--  0               CONFIG          RW      General-purpose config register, no bits defined yet; plain read/write storage, reserved for future use.
+--  1               DDR             RW      Data direction, per pin:
+--                                          1 = output, 0 = input
+--  2               PULL_SEL        RW      Pull resistor select, per pin (only meaningful combined with PULL_EN):
+--                                          1 = pull-up, 0 = pull-down.
+--  3               PULL_EN         RW      Pull resistor enable, per pin:
+--                                          1 = the pull configured by PULL_SEL is active, 0 = floating.
+--  4               OUT             RW      Output data, per pin: drives the pin when DDR = 1; has no effect on a pin configured as input.
+--  5               IN              RO      Input data, per pin: the pin's actual resolved logic level (normalized to '1'/'0' via to_x01, see below),
+--                                          regardless of DDR (also readable while DDR = 1, to read back what's being driven). Writes are ignored.
 --
 -- Dependencies:
 --   tinymcu_pkg
 --
 --------------------------------------------------------------------------------
+
+-- TODO:
+--  - Add support for interrupts
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -51,12 +44,12 @@ entity tinymcu_periph_gpio is
         clk_i : in std_ulogic;
         rst_i : in std_ulogic;
 
-        -- Pad-facing side
-        gpio_port_a : inout std_logic_vector(31 downto 0);
-
         -- Peripheral Decoder-facing side
         gpio_req_i : in  bus_req_t;
-        gpio_rsp_o : out bus_rsp_t
+        gpio_rsp_o : out bus_rsp_t;
+
+        -- Pad-facing side
+        gpio_port_a : inout std_logic_vector(31 downto 0)
     );
 end entity tinymcu_periph_gpio;
 
@@ -75,9 +68,9 @@ architecture tinymcu_periph_gpio_rtl of tinymcu_periph_gpio is
     signal reg_pull_en  : word_t    := (others => '0');
     signal reg_out      : word_t    := (others => '0');
 
-    signal word_offset  : integer range 0 to 63;
-
     signal rdata        : word_t;
+
+    signal word_offset  : integer range 0 to 63;
 
 begin
 

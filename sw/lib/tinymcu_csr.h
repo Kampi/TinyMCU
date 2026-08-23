@@ -18,8 +18,7 @@
 
 /**
  * @brief Install a trap handler's address into mtvec (Direct mode, the
- * only mode tinymcu_cpu.vhd implements: see README.md "Interrupts" --
- * every trap, regardless of cause, redirects to this single address).
+ * only mode tinymcu_cpu.vhd implements: see README.md "Interrupts".
  * @param addr Address of the trap entry point (see tinymcu_trap.S's
  *             trap_entry); must be 4-byte aligned.
  */

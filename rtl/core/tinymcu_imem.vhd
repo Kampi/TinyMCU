@@ -73,17 +73,17 @@ begin
     ----------------------------------------------------------------------
     fetch_sel(0) <= '1' when unsigned(fetch_addr_i(31 downto IMEM_ADDR_WIDTH + 2)) = 0 else '0';
     fetch : process (fetch_dout, fetch_sel)
-        variable tmp_fetch : word_t;
+        variable fetch : word_t;
     begin
-        tmp_fetch := (others => '0');
+        fetch := (others => '0');
 
         for i in 0 to BUS_MEMBERS - 1 loop
             if fetch_sel(i) = '1' then
-                tmp_fetch := fetch_dout(i);
+                fetch := fetch_dout(i);
             end if;
         end loop;
 
-        int_fetch <= tmp_fetch;
+        int_fetch <= fetch;
     end process;
 
     fetch_dout_o <= int_fetch;
@@ -93,17 +93,17 @@ begin
     ----------------------------------------------------------------------
     data_sel(0) <= '1' when unsigned(data_req_i.addr(31 downto IMEM_ADDR_WIDTH + 2)) = 0 else '0';
     data : process (data_dout, data_sel)
-        variable tmp_data  : word_t;
+        variable data  : word_t;
     begin
-        tmp_data  := (others => '0');
+        data  := (others => '0');
 
         for i in 0 to BUS_MEMBERS - 1 loop
             if data_sel(i) = '1' then
-                tmp_data  := data_dout(i);
+                data  := data_dout(i);
             end if;
         end loop;
 
-        int_data  <= tmp_data;
+        int_data  <= data;
     end process;
 
     data_rsp_o.data <= int_data;

@@ -9,38 +9,38 @@
 -- Module Name: tinymcu_periph_timer - tinymcu_periph_timer_rtl
 -- Project Name: TinyMCU
 -- Description:
---   TIMER_BASE..TIMER_END (0x0400_0100..0x0400_01FF
+--  TIMER_BASE..TIMER_END (0x0400_0100..0x0400_01FF)
 --
---   Word offset  Name          R/W  Meaning
---   0            CONFIG        RW   Clock select register.
---                                      Bit                     Description
---                                      3:0                     CLKSEL, binary-encoded
---                                                                  0000        OFF (reg_counter does not tick)
---                                                                  0001        DIV1    (clk_i)
---                                                                  0010        DIV2    (clk_i/2)
---                                                                  0011        DIV4    (clk_i/4)
---                                                                  0100        DIV8    (clk_i/8)
---                                                                  0101        DIV64   (clk_i/64)
---                                                                  0110        DIV256  (clk_i/256)
---                                                                  0111        DIV1024 (clk_i/1024)
---                                                                  1000-1111   Reserved, behaves like OFF
---                                      31:4                    Unused.
---   1            INT_CONFIG    RW   Interrupt enable register.
---                                      Bit                     Description
---                                      0                       Compare interrupt enable.
---                                      31:1                    Unused.
---   2            INT_STATUS    RW   Interrupt status register.
---                                      Bit                     Description
---                                      0                       Compare interrupt flag. Write to '0' to clear it.
---                                      31:1                    Unused.
---   3            COUNTER       RW   Free-running counter, auto-increments every prescaled tick;
---                                   also directly writable/readable by software.
---                                      Bit                     Description
---                                      31:0                    Counter value.
---   4            COMPARE       RW   Compare value; not consumed by hardware yet (no match/
---                                   reload/interrupt logic), plain read/write storage for now.
---                                      Bit                     Description
---                                      31:0                    Compare value.
+--  Word offset     Name            R/W     Meaning
+--  0               CONFIG        RW        Clock select register.
+--                                              Bit                     Description
+--                                              3:0                     Clock prescaler
+--                                                                          0000        OFF (reg_counter does not tick)
+--                                                                          0001        DIV1    (clk_i)
+--                                                                          0010        DIV2    (clk_i/2)
+--                                                                          0011        DIV4    (clk_i/4)
+--                                                                          0100        DIV8    (clk_i/8)
+--                                                                          0101        DIV64   (clk_i/64)
+--                                                                          0110        DIV256  (clk_i/256)
+--                                                                          0111        DIV1024 (clk_i/1024)
+--                                                                          1000-1111   Reserved, behaves like OFF
+--                                              31:4                    Unused.
+--  1               INT_CONFIG    RW        Interrupt enable register.
+--                                              Bit                     Description
+--                                              0                       Compare interrupt enable.
+--                                              31:1                    Unused.
+--  2               INT_STATUS    RW        Interrupt status register.
+--                                              Bit                     Description
+--                                              0                       Compare interrupt flag. Write to '0' to clear it.
+--                                              31:1                    Unused.
+--  3               COUNTER       RW        Free-running counter, auto-increments every prescaled tick;
+--                                          also directly writable/readable by software.
+--                                              Bit                     Description
+--                                              1:0                    Counter value.
+--  4               COMPARE       RW        Compare value; not consumed by hardware yet (no match/
+--                                          reload/interrupt logic), plain read/write storage for now.
+--                                              Bit                     Description
+--                                              31:0                    Compare value.
 --
 -- Dependencies:
 --   tinymcu_pkg
@@ -85,13 +85,13 @@ architecture tinymcu_periph_timer_rtl of tinymcu_periph_timer is
     signal reg_counter      : word_t    := (others => '0');
     signal reg_compare      : word_t    := (others => '0');
 
-    signal word_offset      : integer range 0 to 63;
-
     signal rdata            : word_t;
+
+    signal word_offset      : integer range 0 to 63;
 
     signal clk_prescaled    : std_ulogic := '0';
 
-    -- Maps CLKSEL to which bit of the prescaler's free-running counter selects the divide
+    -- Maps the clock prescaler to which bit of the prescaler's free-running counter selects the divide
     -- period (tapping bit i and pulsing on its rising edge gives one tick every 2**(i+1)
     -- cycles, see "Clock prescaler" below).
     --   clksel - reg_config(3 downto 0), the CONFIG register's CLKSEL field (see the header
@@ -100,7 +100,7 @@ architecture tinymcu_periph_timer_rtl of tinymcu_periph_timer is
     -- every cycle, no bit to tap); the sentinel -2 for OFF (never tick covers CLKSEL "0000"
     -- and every reserved "1000".."1111" code, all falling into "when others" below since none
     -- of them are listed explicitly).
-    function clksel_tap_bit(clksel : std_ulogic_vector(3 downto 0)) return integer is
+    function clksel_reg(clksel : std_ulogic_vector(3 downto 0)) return integer is
     begin
         case clksel is
             when "0001" => return -1;  -- DIV1
@@ -185,7 +185,7 @@ begin
                 clk_prescaled   <= '0';
             else
                 free_run_cnt := free_run_cnt + 1;
-                tap_bit := clksel_tap_bit(reg_config(3 downto 0));
+                tap_bit := clksel_reg(reg_config(3 downto 0));
 
                 -- No prescaler configured
                 if tap_bit = -1 then

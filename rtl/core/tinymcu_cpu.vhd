@@ -46,14 +46,20 @@ entity tinymcu_cpu is
     );
     port (
         -- Global control
-        clk_i           : in std_ulogic;
-        rst_i           : in std_ulogic;
+        clk_i           : in std_logic;
+        rst_i           : in std_logic;
 
         -- External interrupt request
-        ext_irq_i       : in std_ulogic;
+        ext_irq_i       : in std_logic;
 
         -- GPIO ports
         gpio_port_a     : inout std_logic_vector(31 downto 0);
+
+        -- UART
+        uart_tx_o       : out std_logic;
+        uart_rx_i       : in std_logic := '1';
+        uart_rts_o      : out std_logic;
+        uart_cts_i      : in std_logic := '1';
 
         -- Simulation/debug only; leave unconnected in the FPGA top level.
         debug_regs_o    : out reg_array_t
@@ -314,8 +320,7 @@ begin
                     when others => ram_ben <= "1000";
                 end case;
 
-                -- The byte to write is determined by 'ram_ben'. This approach
-                -- keeps the logic simple.
+                -- The byte to write is determined by 'ram_ben'
                 ram_in <= rs2_val(7 downto 0) & rs2_val(7 downto 0) &
                           rs2_val(7 downto 0) & rs2_val(7 downto 0);
 
@@ -383,6 +388,7 @@ begin
     mti_pending <= mie(IRQ_MTI_BIT) and mip(IRQ_MTI_BIT);
     mei_pending <= mie(IRQ_MEI_BIT) and mip(IRQ_MEI_BIT);
 
+    -- Signal a trap when MIE is set and an interrupt is pending
     is_trap <= '1' when (mstatus(3) = '1' and
                          (msi_pending = '1' or mti_pending = '1' or mei_pending = '1') and
                          mem_stall = '0')
@@ -409,12 +415,30 @@ begin
     end process;
 
     ----------------------------------------------------------------------
-    -- Jump/branch target address selection
+    -- Jump/branch/trap target address selection
     ----------------------------------------------------------------------
-    process (is_trap, is_mret, is_jal, is_jalr, pc_ex, imm_j, imm_b, imm_i, rs1_val, mtvec, mepc)
+    process (is_trap, is_mret, is_jal, is_jalr, pc_ex, imm_j, imm_b, imm_i, rs1_val, mtvec, mepc, mei_pending, msi_pending, mti_pending)
+        variable vec_cause  : integer range 0 to 15;
+        variable mtvec_base : word_t;
     begin
+        if mei_pending = '1' then
+            vec_cause := IRQ_MEI_BIT;
+        elsif msi_pending = '1' then
+            vec_cause := IRQ_MSI_BIT;
+        else
+            vec_cause := IRQ_MTI_BIT;
+        end if;
+
+        mtvec_base := mtvec(31 downto 2) & "00";
+
         if is_trap = '1' then
-            redirect_target <= mtvec;
+            -- Vector mode
+            if mtvec(1 downto 0) = "01" then
+                redirect_target <= std_ulogic_vector(unsigned(mtvec_base) + to_unsigned(vec_cause * 4, 32));
+            -- Direct mode
+            else
+                redirect_target <= mtvec_base;
+            end if;
         elsif is_mret = '1' then
             redirect_target <= mepc;
         elsif is_jal = '1' then
@@ -476,7 +500,9 @@ begin
             gpio_req_o    => gpio_req,
             gpio_rsp_i    => gpio_rsp,
             timer_req_o   => timer_req,
-            timer_rsp_i   => timer_rsp
+            timer_rsp_i   => timer_rsp,
+            uart_req_o    => uart_req,
+            uart_rsp_i    => uart_rsp
         );
 
     ----------------------------------------------------------------------
@@ -486,9 +512,9 @@ begin
         port map (
             clk_i       => clk_i,
             rst_i       => rst_i,
-            gpio_port_a => gpio_port_a,
             gpio_req_i  => gpio_req,
-            gpio_rsp_o  => gpio_rsp
+            gpio_rsp_o  => gpio_rsp,
+            gpio_port_a => gpio_port_a
         );
 
     ----------------------------------------------------------------------
@@ -511,7 +537,11 @@ begin
             clk_i       => clk_i,
             rst_i       => rst_i,
             uart_req_i  => uart_req,
-            uart_rsp_o  => uart_rsp
+            uart_rsp_o  => uart_rsp,
+            tx_o        => uart_tx_o,
+            rx_i        => uart_rx_i,
+            rts_o       => uart_rts_o,
+            cts_i       => uart_cts_i
         );
 
     ----------------------------------------------------------------------

@@ -2,13 +2,6 @@
 
 """Shared helpers for writing generated content into VHDL files between a
 pair of marker comments, without disturbing anything else in the file.
-Used by:
-  - asm.py (hand assembler) and hex2rom.py (compiled programs, via Intel
-    HEX) to write rtl/core/tinymcu_imem_bootrom.vhd's PROGRAM constant
-    (PROGRAM_MARKER_BEGIN/_END).
-  - asm.py to also write sim/tinymcu_tb_imem.vhd's check(...) calls
-    (CHECKS_MARKER_BEGIN/_END), so the hand-assembled demo program and
-    the testbench that checks it can never drift apart from each other.
 """
 
 import re

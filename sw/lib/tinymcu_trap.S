@@ -1,21 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Minimal M-mode trap entry stub, installed into mtvec by
-# tinymcu_trap_init() (see tinymcu_trap.h/.c). TinyMCU only implements
-# Direct mode (see rtl/core/tinymcu_cpu.vhd's header): there is exactly
-# one entry point for every trap, regardless of cause, so trap_entry
-# below does not read mcause itself. It always calls
-# tinymcu_trap_handler(), which reads mcause (see tinymcu_csr.h) if it
-# needs to distinguish which source fired.
-#
-# Every caller-saved register (ra, t0-t6, a0-a7) is spilled to the stack
-# before the call and reloaded after: an interrupt can land in the
-# middle of any C code, at any point the compiler assumed those
-# registers were free to clobber across the *next* call it emits, so
-# they must all survive across this one too, not just whatever
-# tinymcu_trap_handler() itself happens to touch. Callee-saved registers
-# (s0-s11, sp, gp, tp) don't need saving here: the C calling convention
-# already guarantees tinymcu_trap_handler() preserves those on its own.
+# tinymcu_trap_init() (see tinymcu_trap.h/.c).
 
     .section .text
     .global trap_entry

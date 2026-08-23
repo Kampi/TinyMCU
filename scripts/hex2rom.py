@@ -11,10 +11,6 @@ else in it (entity, generics, comments) is left untouched.
 
 Usage:
     hex2rom.py <hexfile> [--vhdl-file PATH] [--max-words N]
-
-The hex file itself does not need to know anything about RISC-V --
-this only reshuffles bytes into 32-bit little-endian words, so any
-Intel HEX file (not just RISC-V firmware) can be fed through it.
 """
 
 import argparse

@@ -68,6 +68,8 @@ package tinymcu_pkg is
     constant GPIO_END       : word_t := x"040000FF";
     constant TIMER_BASE     : word_t := x"04000100";
     constant TIMER_END      : word_t := x"040001FF";
+    constant UART_BASE      : word_t := x"04000200";
+    constant UART_END       : word_t := x"040002FF";
 
     -- Opcodes (instr(6 downto 0))
     constant OPC_OP32       : std_ulogic_vector(6 downto 0) := "0111011";       -- 32-bit operations. Not implemented.
@@ -228,7 +230,7 @@ package tinymcu_pkg is
     -- column-padded to line up like objdump's output), or ".word 0x<instr>" for anything not
     -- decoded (see below).
     -- Only covers what tinymcu_cpu_control.vhd/tinymcu_cpu_alu.vhd actually implement (see
-    -- README.md "Extensions": no CSR/FENCE/ECALL/EBREAK, no ORC.B/REV8); anything else, and any
+    -- README.md "Extensions": no FENCE/ECALL/EBREAK/WFI, no ORC.B/REV8); anything else, and any
     -- opcode this core doesn't implement, falls back to ".word 0x...".
     function disassemble(pc : word_t; instr : word_t) return string;
 
@@ -340,6 +342,7 @@ package body tinymcu_pkg is
         variable imm_b : word_t := sext(instr(31) & instr(7) & instr(30 downto 25) & instr(11 downto 8) & '0', 32);
         variable imm_j : word_t := sext(instr(31) & instr(19 downto 12) & instr(20) & instr(30 downto 21) & '0', 32);
         variable shamt : word_t := std_ulogic_vector(resize(unsigned(instr(24 downto 20)), 32));
+        variable csr_addr : word_t := std_ulogic_vector(resize(unsigned(instr(31 downto 20)), 32));
 
         variable target : word_t;
 
@@ -493,6 +496,26 @@ package body tinymcu_pkg is
 
             when OPC_JALR =>
                 return "jalr  " & reg_name(rd) & "," & reg_name(rs1) & "," & to_dec(imm_i);
+
+            when OPC_SYSTEM =>
+                case funct3 is
+                    when "000" =>
+                        if instr(31 downto 20) = x"302" then
+                            return "mret";
+                        else
+                            return ".word 0x" & to_hex(instr);
+                        end if;
+                    when CSR_RW  => return "csrrw  " & reg_name(rd) & ",0x" & to_hex(csr_addr) & "," & reg_name(rs1);
+                    when CSR_RS  => return "csrrs  " & reg_name(rd) & ",0x" & to_hex(csr_addr) & "," & reg_name(rs1);
+                    when CSR_RC  => return "csrrc  " & reg_name(rd) & ",0x" & to_hex(csr_addr) & "," & reg_name(rs1);
+                    when CSR_RWI => return "csrrwi " & reg_name(rd) & ",0x" & to_hex(csr_addr) & "," &
+                                            to_dec(std_ulogic_vector(resize(unsigned(rs1), 32)));
+                    when CSR_RSI => return "csrrsi " & reg_name(rd) & ",0x" & to_hex(csr_addr) & "," &
+                                            to_dec(std_ulogic_vector(resize(unsigned(rs1), 32)));
+                    when CSR_RCI => return "csrrci " & reg_name(rd) & ",0x" & to_hex(csr_addr) & "," &
+                                            to_dec(std_ulogic_vector(resize(unsigned(rs1), 32)));
+                    when others  => return ".word 0x" & to_hex(instr);
+                end case;
 
             when others =>
                 return ".word 0x" & to_hex(instr);

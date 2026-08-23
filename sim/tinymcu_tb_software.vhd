@@ -19,10 +19,6 @@
 -- Dependencies:
 --   tinymcu.tinymcu_pkg, tinymcu.tinymcu_cpu
 --
--- Additional Comments:
---   This file is compiled into the default "work" library (it is
---   verification scaffolding, not an MCU-specific component) and
---   references the design under test from the "tinymcu" library.
 --------------------------------------------------------------------------------
 
 library ieee;

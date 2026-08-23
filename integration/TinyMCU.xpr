@@ -108,13 +108,6 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../rtl/peripherals/tinymcu_periph_uart.vhd">
-        <FileInfo>
-          <Attr Name="Library" Val="tinymcu"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <File Path="$PPRDIR/../rtl/core/tinymcu_imem_bootrom.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>
@@ -193,6 +186,13 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/../rtl/peripherals/tinymcu_periph_timer.vhd">
+        <FileInfo SFType="VHDL2008">
+          <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../rtl/peripherals/tinymcu_periph_uart.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -399,9 +399,7 @@
     </Run>
     <Run Id="Impl" Type="Ft2:EntireDesign" Part="xc7z010clg400-1" ConstrsSet="constrs_1" Description="Default settings for Implementation." AutoIncrementalCheckpoint="false" WriteIncrSynthDcp="false" State="current" Dir="$PRUNDIR/Impl" SynthRun="Synth" IncludeInArchive="true" IsChild="false" GenFullBitstream="true" AutoIncrementalDir="$PSRCDIR/utils_1/imports/Impl" LaunchOptions="-jobs 8 " AutoRQSDir="$PSRCDIR/utils_1/imports/Impl" ParallelReportGen="true">
       <Strategy Version="1" Minor="2">
-        <StratHandle Name="Vivado Implementation Defaults" Flow="Vivado Implementation 2024">
-          <Desc>Default settings for Implementation.</Desc>
-        </StratHandle>
+        <StratHandle Name="Vivado Implementation Defaults" Flow="Vivado Implementation 2024"/>
         <Step Id="init_design"/>
         <Step Id="opt_design"/>
         <Step Id="power_opt_design"/>

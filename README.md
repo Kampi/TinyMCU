@@ -40,8 +40,6 @@ scripts/                see Scripts below
 sw/                     C/asm firmware (see sw/*/Makefile)
 ```
 
-The subdirectories are purely organizational: GHDL binds by library + entity name, not file path, so `entity tinymcu.tinymcu_sram` resolves the same regardless of which of the three locations analyzed it. `rtl/Makefile`'s `RTL_SRCS` picks up all three when building.
-
 ## Required tools
 
 | Tool | Purpose | Install (Debian/Ubuntu) |
@@ -90,9 +88,7 @@ exception of the system/synchronization instructions listed below.
 
 ## Implemented CSRs
 
-`tinymcu_cpu_csrfile.vhd` implements the minimal M-mode register set needed
-for trap handling. Any other CSR address reads as 0 and silently ignores
-writes, same as an unmapped address elsewhere on the bus.
+`tinymcu_cpu_csrfile.vhd` implements the minimal M-mode register set needed for trap handling. Any other CSR address reads as 0 and silently ignores writes, same as an unmapped address elsewhere on the bus.
 
 | CSR        | Address | Notes |
 |------------|---------|-------|
@@ -108,48 +104,30 @@ writes, same as an unmapped address elsewhere on the bus.
 | `marchid`  | `0xF12` | Read-only, hardwired to 0 |
 | `mimpid`   | `0xF13` | Read-only; 0 on an unreleased/dev build, otherwise the release version (see below) |
 
-`mimpid`'s value comes from `rtl/tinymcu_pkg.vhd`'s `MIMPID` constant,
-which `scripts/set_mimpid.py` sets from a release version string (e.g.
-`1.4.2`, packed as MAJOR in bits 31:24, MINOR in bits 23:16, PATCH in
-bits 15:0). Meant to be run by a CI/CD release job, not by hand:
+`mimpid`'s value comes from `rtl/tinymcu_pkg.vhd`'s `MIMPID` constant, which `scripts/set_mimpid.py` sets from a release version string (e.g. `1.4.2`, packed as MAJOR in bits 31:24, MINOR in bits 23:16, PATCH in bits 15:0). Meant to be run by a CI/CD release job, not by hand:
 
 ```sh
 scripts/set_mimpid.py 1.4.2          # from an explicit argument
 RELEASE_VERSION=1.4.2 scripts/set_mimpid.py   # or from the environment
 ```
 
-The checked-in default is 0, meaning "no release version stamped" (a
-dev/unreleased build), same meaning as `mvendorid`/`marchid`'s 0.
+The checked-in default is 0, meaning "no release version stamped" (a dev/unreleased build), same meaning as `mvendorid`/`marchid`'s 0.
 
 ## Interrupts
 
-TinyMCU implements the standard RV32 M-mode trap mechanism (`tinymcu_cpu.vhd`
-and `tinymcu_cpu_csrfile.vhd`):
+TinyMCU implements the standard RV32 M-mode trap mechanism (`tinymcu_cpu.vhd` and `tinymcu_cpu_csrfile.vhd`):
 
-- On a pending, enabled interrupt (`mstatus.MIE = 1` and the matching
-  `mie`/`mip` bit both set), the pipeline redirects to `mtvec`, saves the
-  interrupted PC into `mepc`, encodes the source into `mcause`
-  (bit 31 = 1, low bits = the standard cause code: 3 software / 7 timer /
-  11 external), and saves/clears `mstatus.MIE` via `MPIE`.
-- `MRET` restores `mstatus.MIE` from `MPIE` and redirects the PC back to
-  `mepc`.
+- On a pending, enabled interrupt (`mstatus.MIE = 1` and the matching `mie`/`mip` bit both set), the pipeline redirects to `mtvec`, saves the interrupted PC into `mepc`, encodes the source into `mcause` (bit 31 = 1, low bits = the standard cause code: 3 software / 7 timer / 11 external), and saves/clears `mstatus.MIE` via `MPIE`.
+- `MRET` restores `mstatus.MIE` from `MPIE` and redirects the PC back to `mepc`.
 - Priority when multiple sources are pending at once: external > software > timer.
 
-Of the three standard M-mode sources, only the external one is wired to an
-actual input pin so far: `ext_irq_i` (`tinymcu_top`/`tinymcu_cpu`) directly
-drives `mip.MEIP`. `timer_irq_i`/`software_irq_i` exist as ports on
-`tinymcu_cpu_csrfile.vhd` but are hardwired to `'0'` in `tinymcu_cpu.vhd`
-until a timer/software-interrupt peripheral exists.
+Of the three standard M-mode sources, only the external one is wired to an actual input pin so far: `ext_irq_i` (`tinymcu_top`/`tinymcu_cpu`) directly drives `mip.MEIP`. `timer_irq_i`/`software_irq_i` exist as ports on `tinymcu_cpu_csrfile.vhd` but are hardwired to `'0'` in `tinymcu_cpu.vhd` until a timer/software-interrupt peripheral exists.
 
-`rtl/Makefile`'s `make run-irq` exercises the full trap-entry-and-return
-round trip in simulation (`sim/tinymcu_tb_irq.vhd`); see
-[Scripts](#scripts).
+`rtl/Makefile`'s `make run-irq` exercises the full trap-entry-and-return round trip in simulation (`sim/tinymcu_tb_irq.vhd`); see [Scripts](#scripts).
 
 ## Register (ABI) Names
 
-Standard RISC-V calling-convention names for `x0`-`x31`, as used by the
-GCC toolchain (`objdump` output, register names in generated assembly)
-and by `tinymcu_pkg.vhd`'s `disassemble()` trace function.
+Standard RISC-V calling-convention names for `x0`-`x31`, as used by the GCC toolchain (`objdump` output, register names in generated assembly) and by `tinymcu_pkg.vhd`'s `disassemble()` trace function.
 
 | Register | ABI name | Meaning |
 |----------|----------|---------|
@@ -166,15 +144,11 @@ and by `tinymcu_pkg.vhd`'s `disassemble()` trace function.
 | `x18`-`x27` | `s2`-`s11`  | Saved registers |
 | `x28`-`x31` | `t3`-`t6`   | Temporaries |
 
-Purely a software convention (the ABI, followed by the GCC toolchain in
-`sw/*`); `tinymcu_cpu_regfile.vhd` itself treats all 32 registers
-identically except `x0`, which is hardwired to 0 in hardware.
+Purely a software convention (the ABI, followed by the GCC toolchain in `sw/*`); `tinymcu_cpu_regfile.vhd` itself treats all 32 registers identically except `x0`, which is hardwired to 0 in hardware.
 
 ## Scripts
 
-CLI tools live directly under `scripts/` (`--help` for each one's full
-option list); shared modules (not meant to be run directly) live in
-`scripts/lib/`.
+CLI tools live directly under `scripts/` (`--help` for each one's full option list); shared modules (not meant to be run directly) live in `scripts/lib/`.
 
 | Script | Purpose |
 |--------|---------|

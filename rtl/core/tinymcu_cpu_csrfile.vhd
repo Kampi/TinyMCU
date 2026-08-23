@@ -36,6 +36,7 @@ entity tinymcu_cpu_csrfile is
         timer_irq_i     : in  std_ulogic;
         software_irq_i  : in  std_ulogic;
 
+        -- Trap control signals
         trap_i          : in  std_ulogic;
         trap_pc_i       : in  word_t;
         is_mret_i       : in  std_ulogic;
@@ -125,9 +126,9 @@ begin
             elsif trap_i = '1' then
                 mepc <= trap_pc_i;
 
-                if ext_irq_i = '1' then
+                if (mie(IRQ_MEI_BIT) and mip_temp(IRQ_MEI_BIT)) = '1' then
                     mcause <= '1' & std_ulogic_vector(to_unsigned(IRQ_MEI_BIT, 31));
-                elsif software_irq_i = '1' then
+                elsif (mie(IRQ_MSI_BIT) and mip_temp(IRQ_MSI_BIT)) = '1' then
                     mcause <= '1' & std_ulogic_vector(to_unsigned(IRQ_MSI_BIT, 31));
                 else
                     mcause <= '1' & std_ulogic_vector(to_unsigned(IRQ_MTI_BIT, 31));

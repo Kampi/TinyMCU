@@ -3,17 +3,28 @@
 
 """Hand-assembled IRQ/MRET round-trip test program for sim/tinymcu_tb_irq.vhd.
 
-Writes rtl/core/tinymcu_imem_bootrom.vhd's PROGRAM constant (between the
-TINYMCU_PROGRAM_BEGIN/_END markers), the same marker asm.py's demo program
-uses -- so this overwrites that program in the ROM. Run "make run" (or the
-plain "asm" target) afterwards to put the demo program back, the same way a
-sw/*/Makefile's "rom" target and asm.py's own ROM already coexist (see
-rtl/Makefile's header comment).
-
 sim/tinymcu_tb_irq.vhd's register checks (x6 = 222, x7 > 0) are hardwired
 to this exact program (see its header comment for the expected layout), so
 unlike asm.py this script does not generate a checks block; the program
 here and the testbench must be kept in sync by hand if either changes.
+
+Program layout (word index -> byte address), for reference -- kept here as
+prose, not regenerated: if the emit() calls below change, re-run this
+script to update the ROM, and update this table (and tinymcu_tb_irq.vhd's
+own copy) by hand too.
+
+    0x00: addi x1, x0, 0x40       (handler address)
+    0x04: csrrw x0, mtvec, x1
+    0x08: addi x2, x0, 8  (MIE bit)
+    0x0C: csrrw x0, mstatus, x2  (mstatus.MIE = 1)
+    0x10: lui  x3, 1
+    0x14: addi x3, x3, -2048  (x3 = 0x800, MEIE bit)
+    0x18: csrrw x0, mie, x3  (mie.MEIE = 1)
+    0x1C: loop: addi x7, x7, 1
+    0x20: jal  x0, loop
+    0x24-0x3C: nop (padding up to the handler address)
+    0x40: handler: addi x6, x0, 222  (marker: handler ran)
+    0x44: mret
 
 Usage:
     asm_irq.py [--vhdl-file PATH]

@@ -1,22 +1,12 @@
 /*
- * TinyMCU LED chase ("Lauflicht") demo (RV32I + Zicsr, freestanding).
+ * TinyMCU LED chase ("Lauflicht") demo.
  *
  * Walks a single lit LED across 4 GPIO pins (0-3), one step every 100 ms,
- * driven by the Timer peripheral's compare interrupt (see
- * sw/lib/tinymcu_timer.h) instead of polling COUNTER: main() only arms
- * the timer and mie/mstatus once, then idles forever -- every step
- * happens inside tinymcu_trap_handler() below.
+ * driven by the Timer peripheral's compare interrupt.
  *
  * Assumes a 16 MHz input clock (clk_i), given as a project constant below
  * rather than read from hardware. TinyMCU has no way to query its own
  * clock frequency. Adjust INPUT_CLOCK_HZ if the actual clock differs.
- *
- * No libc, no syscalls (see sw/basic_c/main.c's header for the general
- * constraints this build is under). In particular, do not rely on
- * '*'/'/'/'%' on int here unless both operands are compile-time constants
- * (the compiler folds those at build time, no libgcc needed);
- * CLK_TICKS_PER_100MS below relies on exactly that, and the position
- * wraparound uses '&' instead of '%' for the same reason (see LED_COUNT).
  */
 
 #include "tinymcu_gpio.h"
@@ -40,7 +30,7 @@ void tinymcu_trap_handler(void) {
     tinymcu_gpio_set(LED_BASE_PIN + pos);
 }
 
-int main(void) {
+int main (void) {
     unsigned int pin;
 
     for (pin = LED_BASE_PIN; pin < LED_BASE_PIN + LED_COUNT; pin++) {

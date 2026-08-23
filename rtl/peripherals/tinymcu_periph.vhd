@@ -12,6 +12,7 @@
 --   Address range                 Target        Meaning
 --   0x0400_0000 - 0x0400_00FF     gpio_req_o    GPIO (tinymcu_periph_gpio); GPIO_BASE.
 --   0x0400_0100 - 0x0400_01FF     timer_req_o   Timer (tinymcu_periph_timer); TIMER_BASE.
+--   0x0400_0200 - 0x0400_02FF     uart_req_o    UART (tinymcu_periph_uart); UART_BASE.
 --   Any other address              -            Unmapped: reads as 0
 --
 -- Dependencies:
@@ -38,14 +39,19 @@ entity tinymcu_periph is
 
         -- Timer-facing bus
         timer_req_o : out bus_req_t;
-        timer_rsp_i : in  bus_rsp_t
+        timer_rsp_i : in  bus_rsp_t;
+
+        -- UART-facing bus
+        uart_req_o : out bus_req_t;
+        uart_rsp_i : in  bus_rsp_t
     );
 end entity tinymcu_periph;
 
 architecture tinymcu_periph_rtl of tinymcu_periph is
     -- 0 = GPIO
     -- 1 = Timer
-    constant BUS_MEMBERS : integer := 2;
+    -- 2 = UART
+    constant BUS_MEMBERS : integer := 3;
 
     type port_req_t is array (BUS_MEMBERS - 1 downto 0) of bus_req_t;
     type port_rsp_t is array (BUS_MEMBERS - 1 downto 0) of bus_rsp_t;
@@ -58,14 +64,18 @@ architecture tinymcu_periph_rtl of tinymcu_periph is
     signal int_rsp  : bus_rsp_t;
 begin
 
-    port_sel(0) <= '1' when periph_req_i.addr(31 downto 8) = GPIO_BASE(31 downto 8)    else '0';
+    port_sel(0) <= '1' when periph_req_i.addr(31 downto 8) = GPIO_BASE(31 downto 8)  else '0';
     port_sel(1) <= '1' when periph_req_i.addr(31 downto 8) = TIMER_BASE(31 downto 8) else '0';
+    port_sel(2) <= '1' when periph_req_i.addr(31 downto 8) = UART_BASE(31 downto 8)  else '0';
 
     gpio_req_o  <= port_req(0);
     port_rsp(0) <= gpio_rsp_i;
 
     timer_req_o <= port_req(1);
     port_rsp(1) <= timer_rsp_i;
+
+    uart_req_o  <= port_req(2);
+    port_rsp(2) <= uart_rsp_i;
 
     -- Bus request: every target gets the full request every cycle, but
     -- only the selected one gets a real strobe.
@@ -81,18 +91,18 @@ begin
     -- actually selected before OR-combining, so an unselected (possibly
     -- undriven) target can never corrupt the result.
     response : process (port_rsp, port_sel)
-        variable tmp_v : bus_rsp_t;
+        variable rsp : bus_rsp_t;
     begin
-        tmp_v := BUS_RSP_IDLE;
+        rsp := BUS_RSP_IDLE;
 
         for i in 0 to BUS_MEMBERS - 1 loop
             if port_sel(i) = '1' then
-                tmp_v.data := tmp_v.data or port_rsp(i).data;
-                tmp_v.ack  := tmp_v.ack  or port_rsp(i).ack;
+                rsp.data := rsp.data or port_rsp(i).data;
+                rsp.ack  := rsp.ack  or port_rsp(i).ack;
             end if;
         end loop;
 
-        int_rsp <= tmp_v;
+        int_rsp <= rsp;
     end process;
 
     periph_rsp_o.data <= int_rsp.data;

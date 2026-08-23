@@ -23,7 +23,7 @@ void tinymcu_trap_init(void);
  * @brief Trap dispatch entry point, called from trap_entry (see
  * tinymcu_trap.S) with every caller-saved register already preserved.
  *
- * Weak by default (does nothing)
+ * Weak by default
  */
 void tinymcu_trap_handler(void);
 

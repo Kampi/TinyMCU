@@ -7,6 +7,10 @@
 #   make run-irq    - regenerate the ROM from asm_irq.py (IRQ/MRET
 #                      round-trip program), then analyze, elaborate and
 #                      run tb_irq
+#   make run-gpio   - analyze, elaborate and run tb_gpio (standalone
+#                      GPIO peripheral test, no tinymcu_cpu/ROM involved)
+#   make run-timer  - same, for tb_timer (Timer peripheral)
+#   make run-uart   - same, for tb_uart (UART peripheral)
 #   make wave       - like run, but also dump build/tb_cpu.ghw for a
 #                      waveform viewer (e.g. GTKWave)
 #   make analyze    - syntax/semantic check only, no simulation
@@ -69,9 +73,22 @@ IRQ_ASM := $(SCRIPTS_DIR)/asm_irq.py
 IRQ_SIM_SRCS := $(SIM_DIR)/tinymcu_tb_irq.vhd
 IRQ_TB := tb_irq
 
+# Standalone peripheral testbenches (sim/peripherals/tinymcu_tb_gpio.vhd/
+# tb_timer.vhd/tb_uart.vhd): each instantiates its peripheral directly,
+# not tinymcu_cpu, so none of these touch $(IMEM_VHD) or need an "asm"
+# step.
+SIM_PERIPH_DIR := $(SIM_DIR)/peripherals
+GPIO_SIM_SRCS  := $(SIM_PERIPH_DIR)/tinymcu_tb_gpio.vhd
+GPIO_TB        := tb_gpio
+TIMER_SIM_SRCS := $(SIM_PERIPH_DIR)/tinymcu_tb_timer.vhd
+TIMER_TB       := tb_timer
+UART_SIM_SRCS  := $(SIM_PERIPH_DIR)/tinymcu_tb_uart.vhd
+UART_TB        := tb_uart
+
 GHDLFLAGS := $(STD) --workdir=$(BUILD) -P$(BUILD)
 
-.PHONY: all run run-irq wave analyze analyze-irq asm asm-irq clean help
+.PHONY: all run run-irq run-gpio run-timer run-uart wave analyze analyze-irq \
+        analyze-gpio analyze-timer analyze-uart asm asm-irq clean help
 
 all: run
 
@@ -114,17 +131,51 @@ elab-irq: analyze-irq
 run-irq: elab-irq
 	$(GHDL) -r $(GHDLFLAGS) --work=work $(IRQ_TB)
 
+analyze-gpio: $(BUILD)
+	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
+	$(GHDL) -a $(GHDLFLAGS) --work=work $(GPIO_SIM_SRCS)
+
+elab-gpio: analyze-gpio
+	$(GHDL) -e $(GHDLFLAGS) --work=work $(GPIO_TB)
+
+run-gpio: elab-gpio
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(GPIO_TB)
+
+analyze-timer: $(BUILD)
+	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
+	$(GHDL) -a $(GHDLFLAGS) --work=work $(TIMER_SIM_SRCS)
+
+elab-timer: analyze-timer
+	$(GHDL) -e $(GHDLFLAGS) --work=work $(TIMER_TB)
+
+run-timer: elab-timer
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(TIMER_TB)
+
+analyze-uart: $(BUILD)
+	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
+	$(GHDL) -a $(GHDLFLAGS) --work=work $(UART_SIM_SRCS)
+
+elab-uart: analyze-uart
+	$(GHDL) -e $(GHDLFLAGS) --work=work $(UART_TB)
+
+run-uart: elab-uart
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(UART_TB)
+
 clean:
 	rm -rf $(BUILD)
 
 help:
 	@echo "Targets:"
-	@echo "  run      - regenerate the ROM from asm.py, then analyze,"
-	@echo "             elaborate and simulate $(TB) (default)"
-	@echo "  run-irq  - regenerate the ROM from asm_irq.py, then analyze,"
-	@echo "             elaborate and simulate $(IRQ_TB)"
-	@echo "  wave     - like run, but also dump $(BUILD)/$(TB).ghw"
-	@echo "  analyze  - syntax/semantic check only, no simulation"
-	@echo "  asm      - just regenerate the ROM/testbench from asm.py"
-	@echo "  asm-irq  - just regenerate the ROM from asm_irq.py"
-	@echo "  clean    - remove the build directory"
+	@echo "  run        - regenerate the ROM from asm.py, then analyze,"
+	@echo "               elaborate and simulate $(TB) (default)"
+	@echo "  run-irq    - regenerate the ROM from asm_irq.py, then analyze,"
+	@echo "               elaborate and simulate $(IRQ_TB)"
+	@echo "  run-gpio   - analyze, elaborate and simulate $(GPIO_TB)"
+	@echo "               (standalone, no ROM/tinymcu_cpu involved)"
+	@echo "  run-timer  - same, for $(TIMER_TB)"
+	@echo "  run-uart   - same, for $(UART_TB)"
+	@echo "  wave       - like run, but also dump $(BUILD)/$(TB).ghw"
+	@echo "  analyze    - syntax/semantic check only, no simulation"
+	@echo "  asm        - just regenerate the ROM/testbench from asm.py"
+	@echo "  asm-irq    - just regenerate the ROM from asm_irq.py"
+	@echo "  clean      - remove the build directory"
