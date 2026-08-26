@@ -13,6 +13,7 @@
   - [Interrupts](#interrupts)
   - [Register (ABI) Names](#register-abi-names)
   - [Scripts](#scripts)
+  - [Ressources](#ressources)
   - [Maintainer](#maintainer)
 
 ## Directory Layout
@@ -26,6 +27,8 @@ rtl/
 │   ├── tinymcu_cpu_alu.vhd
 │   ├── tinymcu_cpu_control.vhd
 │   ├── tinymcu_cpu_csrfile.vhd
+│   ├── tinymcu_cpu_div.vhd
+│   ├── tinymcu_cpu_mult.vhd
 │   ├── tinymcu_cpu_regfile.vhd
 │   ├── tinymcu_addr_decoder.vhd
 │   ├── tinymcu_imem.vhd,
@@ -34,8 +37,12 @@ rtl/
 │   └── tinymcu_sram_generic.vhd
 └── peripherals/        peripheral bus mux + peripherals
     ├── tinymcu_periph.vhd
-    └── tinymcu_periph_gpio.vhd
-sim/                    testbenches (see rtl/Makefile's SIM_SRCS/IRQ_SIM_SRCS)
+    ├── tinymcu_periph_gpio.vhd
+    ├── tinymcu_periph_timer.vhd
+    └── tinymcu_periph_uart.vhd
+sim/                    testbenches (see rtl/Makefile's SIM_SRCS/IRQ_SIM_SRCS/...)
+├── core/               tinymcu_cpu-level and standalone core-component testbenches
+└── peripherals/        standalone peripheral testbenches
 scripts/                see Scripts below
 sw/                     C/asm firmware (see sw/*/Makefile)
 ```
@@ -58,7 +65,8 @@ sw/                     C/asm firmware (see sw/*/Makefile)
 | Zicsr     | Partially implemented| All 6 `CSRR*` instructions work against a small, fixed set of CSRs (see [Implemented CSRs](#implemented-csrs)); trap entry/exit (`MRET`) and a single external interrupt line work end-to-end (see [Interrupts](#interrupts)), M-mode only (no other privilege modes) |
 | Zifencei  | Not implemented| `FENCE.I` |
 | B (Zba, Zbb, Zbc, Zbs)| Partially implemented| Every R-type bit-manipulation op, its `*I` immediate counterpart, and the five `OPC_OPIMM`-only unary ops (`CLZ`/`CTZ`/`CPOP`/`SEXT.B`/`SEXT.H`) work end-to-end, verified through the full pipeline, not just the ALU in isolation (see [Supported Instructions](#supported-instructions)). Those five share one `funct7`+`funct3` pair and are only distinguished by `instr(24 downto 20)`, so `alu_op` (`tinymcu_pkg.vhd`) carries that field too now, as a `subfunc` forced to a sentinel value everywhere else it doesn't apply (so it can't leak into e.g. `ROL`, which happens to share that same `funct7`+`funct3` pair under a different opcode). `ORC.B`/`REV8` are not implemented: their exact encoding wasn't verified with enough confidence to risk a silently wrong implementation. `disassemble()` knows all the implemented B-extension mnemonics, including the five unary ops |
-| M, A, F, D, C, ...| Not implemented| No other standard extensions |
+| M         | Implemented    | All 8 instructions (`MUL` `MULH` `MULHSU` `MULHU` `DIV` `DIVU` `REM` `REMU`), verified through the full pipeline, not just the units in isolation (see [Supported Instructions](#supported-instructions)). Multiply (`tinymcu_cpu_mult.vhd`) and divide (`tinymcu_cpu_div.vhd`) are separate multi-cycle units, sitting alongside the ALU rather than inside it: a shift-add multiplier and a restoring shift-subtract divider, each taking 32 cycles and stalling the pipeline for their duration (`stall`/`dispatched` in `tinymcu_cpu.vhd`). The divider also implements the RISC-V-mandated division-by-zero and signed-overflow (`(-2^31)/(-1)`) special cases in hardware, without trapping, per spec |
+| A, F, D, C, ...| Not implemented| No other standard extensions |
 
 ## Supported Instructions
 
@@ -77,6 +85,7 @@ exception of the system/synchronization instructions listed below.
 | CSR            | `CSRRW` `CSRRS` `CSRRC` `CSRRWI` `CSRRSI` `CSRRCI` (see [Implemented CSRs](#implemented-csrs) for which CSR addresses actually do anything) |
 | Trap return    | `MRET` (see [Interrupts](#interrupts)) |
 | Bit manipulation (B) | `SH1ADD` `SH2ADD` `SH3ADD` `ANDN` `ORN` `XNOR` `MIN` `MINU` `MAX` `MAXU` `ROL` `ROR` `RORI` `CLMUL` `CLMULR` `CLMULH` `BCLR` `BCLRI` `BSET` `BSETI` `BINV` `BINVI` `BEXT` `BEXTI` `CLZ` `CTZ` `CPOP` `SEXT.B` `SEXT.H` |
+| Multiply/Divide (M) | `MUL` `MULH` `MULHSU` `MULHU` `DIV` `DIVU` `REM` `REMU` |
 
 ## Not Supported Instructions
 
@@ -123,7 +132,7 @@ TinyMCU implements the standard RV32 M-mode trap mechanism (`tinymcu_cpu.vhd` an
 
 Of the three standard M-mode sources, only the external one is wired to an actual input pin so far: `ext_irq_i` (`tinymcu_top`/`tinymcu_cpu`) directly drives `mip.MEIP`. `timer_irq_i`/`software_irq_i` exist as ports on `tinymcu_cpu_csrfile.vhd` but are hardwired to `'0'` in `tinymcu_cpu.vhd` until a timer/software-interrupt peripheral exists.
 
-`rtl/Makefile`'s `make run-irq` exercises the full trap-entry-and-return round trip in simulation (`sim/tinymcu_tb_irq.vhd`); see [Scripts](#scripts).
+`rtl/Makefile`'s `make run-irq` exercises the full trap-entry-and-return round trip in simulation (`sim/core/tinymcu_tb_irq.vhd`); see [Scripts](#scripts).
 
 ## Register (ABI) Names
 
@@ -152,14 +161,20 @@ CLI tools live directly under `scripts/` (`--help` for each one's full option li
 
 | Script | Purpose |
 |--------|---------|
-| `asm.py` | Hand-assembled demo/self-test program: writes `rtl/core/tinymcu_imem_bootrom.vhd`'s ROM content and `sim/tinymcu_tb_imem.vhd`'s register checks from a single definition, so they can't drift apart. Run automatically by `rtl/Makefile`'s `make`/`make run`. |
+| `asm.py` | Hand-assembled demo/self-test program: writes `rtl/core/tinymcu_imem_bootrom.vhd`'s ROM content and `sim/tinymcu_tb_core.vhd`'s register checks from a single definition, so they can't drift apart. Run automatically by `rtl/Makefile`'s `make`/`make run`. |
 | `asm_irq.py` | Hand-assembled IRQ/`MRET` round-trip test program: writes `rtl/core/tinymcu_imem_bootrom.vhd`. Run automatically by `rtl/Makefile`'s `make run-irq`. |
+| `asm_mult.py` | Hand-assembled M-extension multiply pipeline-integration test program: writes `rtl/core/tinymcu_imem_bootrom.vhd`. Run automatically by `rtl/Makefile`'s `make run-mult-pipeline`. |
+| `asm_div.py` | Same idea as `asm_mult.py`, for the divider. Run automatically by `rtl/Makefile`'s `make run-div-pipeline`. |
 | `hex2rom.py` | Writes a compiled `sw/*` program's Intel HEX output into the ROM. Run automatically by `sw/*/Makefile`'s `make rom`. |
 | `rom2hex.py` | Reverse of `hex2rom.py`: snapshots whatever program is currently embedded in the ROM back out to an Intel HEX file, so it isn't lost when something else overwrites it. |
 | `set_mimpid.py` | Stamps a release version into the `mimpid` CSR's hardwired value (`rtl/tinymcu_pkg.vhd`). Meant for a CI/CD release job, see [Implemented CSRs](#implemented-csrs). |
 | `ghdl_analyze.sh` | Analyzes a set of VHDL files into a GHDL library without requiring them to be listed in dependency order (multi-pass, retries files whose dependencies weren't analyzed yet). Used internally by `rtl/Makefile`. |
-| `lib/rom_writer.py` | Shared module: writes generated content into a VHDL file between a pair of marker comments without disturbing the rest of the file. Used by `asm.py`, `asm_irq.py`, `hex2rom.py`, `rom2hex.py`. |
-| `lib/riscv_isa.py` | Shared module: RV32I/Zicsr instruction encoders and opcode/CSR-address constants. Used by `asm.py`, `asm_irq.py`. |
+| `lib/rom_writer.py` | Shared module: writes generated content into a VHDL file between a pair of marker comments without disturbing the rest of the file. Used by `asm.py`, `asm_irq.py`, `asm_mult.py`, `asm_div.py`, `hex2rom.py`, `rom2hex.py`. |
+| `lib/riscv_isa.py` | Shared module: RV32I/Zicsr/M-extension instruction encoders and opcode/CSR-address constants. Used by `asm.py`, `asm_irq.py`, `asm_mult.py`, `asm_div.py`. |
+
+## Ressources
+
+- [Instructions](https://www.cs.cornell.edu/courses/cs3410/2026sp/rsrc/riscv-ref.htmle)
 
 ## Maintainer
 

@@ -18,7 +18,7 @@ MARKER_BEGIN = PROGRAM_MARKER_BEGIN
 MARKER_END = PROGRAM_MARKER_END
 
 DEFAULT_VHDL_FILE = Path(__file__).resolve().parent.parent.parent / "rtl" / "core" / "tinymcu_imem_bootrom.vhd"
-DEFAULT_TB_FILE = Path(__file__).resolve().parent.parent.parent / "sim" / "tinymcu_tb_imem.vhd"
+DEFAULT_TB_FILE = Path(__file__).resolve().parent.parent.parent / "sim" / "tinymcu_tb_core.vhd"
 
 
 def generate_program_block(words, comments=None):

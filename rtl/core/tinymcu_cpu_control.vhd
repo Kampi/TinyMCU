@@ -25,35 +25,45 @@ use tinymcu.tinymcu_pkg.all;
 entity tinymcu_cpu_control is
     port (
         -- Instruction input
-        instr_i     : in  word_t;
+        instr_i         : in  word_t;
 
         -- Raw instruction fields
-        opcode_o    : out std_ulogic_vector(6 downto 0);
-        rd_o        : out std_ulogic_vector(4 downto 0);
-        rs1_o       : out std_ulogic_vector(4 downto 0);
-        rs2_o       : out std_ulogic_vector(4 downto 0);
-        funct3_o    : out std_ulogic_vector(2 downto 0);
+        opcode_o        : out std_ulogic_vector(6 downto 0);
+        rd_o            : out std_ulogic_vector(4 downto 0);
+        rs1_o           : out std_ulogic_vector(4 downto 0);
+        rs2_o           : out std_ulogic_vector(4 downto 0);
+        funct3_o        : out std_ulogic_vector(2 downto 0);
 
         -- Immediates (already sign-extended to 32 bits)
-        imm_i_o     : out word_t;
-        imm_s_o     : out word_t;
-        imm_b_o     : out word_t;
-        imm_u_o     : out word_t;
-        imm_j_o     : out word_t;
+        imm_i_o         : out word_t;
+        imm_s_o         : out word_t;
+        imm_b_o         : out word_t;
+        imm_u_o         : out word_t;
+        imm_j_o         : out word_t;
 
         -- ALU control
-        alu_op_o    : out std_ulogic_vector(14 downto 0);
-        alu_a_sel_o : out std_ulogic;
-        alu_b_sel_o : out std_ulogic_vector(2 downto 0);
+        alu_op_o        : out std_ulogic_vector(14 downto 0);
+        alu_a_sel_o     : out std_ulogic;
+        alu_b_sel_o     : out std_ulogic_vector(2 downto 0);
 
-        -- Other control signals
-        reg_we_o    : out std_ulogic;
-        ram_we_o    : out std_ulogic;
-        is_jal_o    : out std_ulogic;
-        is_jalr_o   : out std_ulogic;
-        is_branch_o : out std_ulogic;
-        is_mret_o   : out std_ulogic;
-        is_csr_o    : out std_ulogic
+        -- Register file
+        reg_we_o        : out std_ulogic;
+
+        -- SRAM
+        ram_we_o        : out std_ulogic;
+
+        -- Branch & Jump & Trap control
+        is_jal_o        : out std_ulogic;
+        is_jalr_o       : out std_ulogic;
+        is_branch_o     : out std_ulogic;
+        is_mret_o       : out std_ulogic;
+        is_csr_o        : out std_ulogic;
+
+        -- Multiplier
+        is_mult_o       : out std_ulogic;
+
+        -- Division
+        is_div_o        : out std_ulogic
     );
 end entity tinymcu_cpu_control;
 
@@ -73,7 +83,6 @@ begin
     ----------------------------------------------------------------------
     opcode <= std_ulogic_vector(instr_i(6 downto 0));
     funct3 <= std_ulogic_vector(instr_i(14 downto 12));
-
     funct7 <= std_ulogic_vector(instr_i(31 downto 25));
 
     opcode_o <= opcode;
@@ -109,6 +118,7 @@ begin
                when (opcode = OPC_OPIMM and funct3 = "001" and funct7 = "0110000")
                else "11111";
 
+    -- Prepare the ALU command code and the control signals
     process (opcode, funct3, funct7_alu, subfunc)
     begin
         -- Defaults
@@ -188,11 +198,6 @@ begin
     is_csr_o <= is_csr;
 
     ----------------------------------------------------------------------
-    -- Trap related signals
-    ----------------------------------------------------------------------
-    is_mret_o <= '1' when (opcode = OPC_SYSTEM and funct3 = "000" and instr_i(31 downto 20) = x"302") else '0';
-
-    ----------------------------------------------------------------------
     -- Register file related signals
     ----------------------------------------------------------------------
     reg_we_o <= '1' when (opcode = OPC_OP or opcode = OPC_OPIMM or opcode = OPC_LUI or
@@ -206,10 +211,25 @@ begin
     ram_we_o <= '1' when opcode = OPC_STORE else '0';
 
     ----------------------------------------------------------------------
-    -- Branch & Jump related signals
+    -- Jump / Branch / Trap related signals
     ----------------------------------------------------------------------
     is_jal_o    <= '1' when opcode = OPC_JAL    else '0';
     is_jalr_o   <= '1' when opcode = OPC_JALR   else '0';
     is_branch_o <= '1' when opcode = OPC_BRANCH else '0';
+    is_mret_o   <= '1' when (opcode = OPC_SYSTEM and funct3 = "000" and instr_i(31 downto 20) = x"302") else '0';
+
+    ----------------------------------------------------------------------
+    -- Multiplier related signals
+    ----------------------------------------------------------------------
+    is_mult_o <= '1' when (opcode = OPC_OP and funct7 = "0000001") and
+                          (funct3 = "000" or funct3 = "001" or funct3 = "010" or funct3 = "011")
+                 else '0';
+
+    ----------------------------------------------------------------------
+    -- Division related signals
+    ----------------------------------------------------------------------
+    is_div_o <= '1' when (opcode = OPC_OP and funct7 = "0000001") and
+                         (funct3 = "100" or funct3 = "101" or funct3 = "110" or funct3 = "111")
+                else '0';
 
 end architecture tinymcu_cpu_control_rtl;

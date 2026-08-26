@@ -1,4 +1,4 @@
-# TinyMCU - minimal C program build (RV32I only, freestanding, no OS)
+# TinyMCU - minimal C program build (RV32IM by default, freestanding, no OS)
 #
 # Usage:
 #   make            - build build/main.elf, .bin, .hex (Intel HEX) and
@@ -14,8 +14,11 @@
 # Requires a RISC-V GCC cross-compiler on PATH. Override CROSS if your
 # toolchain uses a different triple, e.g.:
 #   make CROSS=riscv32-unknown-elf-
+# Override ARCH to target a different -march (see ARCH_FLAGS below), e.g.:
+#   make ARCH=rv32i
 
 CROSS   ?= riscv64-unknown-elf-
+ARCH    ?= rv32im
 CC      := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
 OBJDUMP := $(CROSS)objdump
@@ -27,16 +30,17 @@ HEX2ROM  := ../../scripts/hex2rom.py
 IMEM_VHD := ../../rtl/core/tinymcu_imem_bootrom.vhd
 LD_FILE	 := ../linker.ld
 
-# RV32I only: no M/A/F/D/C, no Zicsr/Zifencei. Must match what
-# tinymcu_cpu.vhd actually implements (see ../../README.md "Extensions").
-# In particular, do not rely on '*'/'/'/'%' on int anywhere in the
-# sources without also linking libgcc (not done here) -- see main.c.
-ARCH_FLAGS := -march=rv32i -mabi=ilp32
+# rv32im: base integer ISA plus the M extension (MUL/DIV/REM etc., see
+# ../../README.md "Extensions"); no A/F/D/C. Must match what tinymcu_cpu.vhd actually implements
+ARCH_FLAGS := -march=$(ARCH) -mabi=ilp32
 
-CFLAGS  := $(ARCH_FLAGS) -Wall -Wextra -Os -g \
-           -ffreestanding -fno-builtin -fno-pic -nostdlib -nostartfiles
-LDFLAGS := $(ARCH_FLAGS) -T $(LD_FILE) -nostdlib -static \
-           -Wl,--no-relax -Wl,-Map=$(BUILD)/main.map
+WARN_FLAGS         := -Wall -Wextra
+OPT_FLAGS          := -Os -g
+FREESTANDING_FLAGS := -ffreestanding -fno-builtin -fno-pic -nostdlib -nostartfiles
+LINK_FLAGS         := -nostdlib -static -Wl,--no-relax
+
+CFLAGS  := $(ARCH_FLAGS) $(WARN_FLAGS) $(OPT_FLAGS) $(FREESTANDING_FLAGS)
+LDFLAGS := $(ARCH_FLAGS) -T $(LD_FILE) $(LINK_FLAGS) -Wl,-Map=$(BUILD)/main.map
 SRCS := ../crt0.s main.c
 
 .PHONY: all rom clean

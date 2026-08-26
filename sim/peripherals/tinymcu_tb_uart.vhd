@@ -47,8 +47,16 @@ begin
     clk <= not clk after CLK_PERIOD / 2;
 
     dut : entity tinymcu.tinymcu_periph_uart
-        port map (clk_i => clk, rst_i => rst, tx_o => tx, rx_i => rx, rts_o => rts, cts_i => cts,
-                   uart_req_i => req, uart_rsp_o => rsp);
+        port map (
+            clk_i => clk,
+            rst_i => rst,
+            tx_o => tx,
+            rx_i => rx,
+            rts_o => rts,
+            cts_i => cts,
+            uart_req_i => req,
+            uart_rsp_o => rsp
+        );
 
     stim : process
         procedure bus_write(addr : std_ulogic_vector(31 downto 0); data : word_t) is
@@ -79,23 +87,13 @@ begin
         variable rd : word_t;
         variable errors : integer := 0;
 
-        procedure check(name : string; cond : boolean) is
-        begin
-            if cond then
-                report "OK   " & name;
-            else
-                report "FAIL " & name severity error;
-                errors := errors + 1;
-            end if;
-        end procedure;
-
         -- Waits to the middle of the next N-cycle bit slot, then checks
         -- tx_o against the expected level.
         procedure check_bit(name : string; expected : std_ulogic) is
         begin
             wait for CLK_PERIOD * (N / 2);
             check(name & " (expect " & std_ulogic'image(expected) & ", got " & std_ulogic'image(tx) & ")",
-                  tx = expected);
+                  tx = expected, errors);
             wait for CLK_PERIOD * (N - N / 2);
         end procedure;
 
@@ -131,7 +129,7 @@ begin
         rst <= '0';
         wait for CLK_PERIOD * 2;
 
-        check("tx_o idles high before any transmission", tx = '1');
+        check("tx_o idles high before any transmission", tx = '1', errors);
 
         -- CONFIG = 0 (8 data bits, 1 stop bit, no parity -- also the
         -- reset default, written explicitly here for clarity)
@@ -140,14 +138,14 @@ begin
         bus_write(x"00000004", std_ulogic_vector(to_unsigned(N, 32)));
 
         bus_read(x"00000008", rd);  -- STATUS (word offset 2)
-        check("TX_ACTIVE low before transmission", rd(0) = '0');
+        check("TX_ACTIVE low before transmission", rd(0) = '0', errors);
 
         -- TX_DATA = 0xA5
         bus_write(x"0000000C", x"000000A5");
 
         wait until rising_edge(clk);
         bus_read(x"00000008", rd);
-        check("TX_ACTIVE high right after TX_DATA write", rd(0) = '1');
+        check("TX_ACTIVE high right after TX_DATA write", rd(0) = '1', errors);
 
         -- Start bit
         check_bit("start bit", '0');
@@ -160,29 +158,29 @@ begin
 
         wait for CLK_PERIOD * 5;
         bus_read(x"00000008", rd);
-        check("TX_ACTIVE low after transmission completes", rd(0) = '0');
-        check("tx_o idles high again after transmission", tx = '1');
+        check("TX_ACTIVE low after transmission completes", rd(0) = '0', errors);
+        check("tx_o idles high again after transmission", tx = '1', errors);
 
         -- CONFIG: 8 data bits (bits 1:0 = 00), 2 stop bits (bits 3:2 =
         -- 01 -> 0x4), even parity (bits 5:4 = 01 -> 0x10) = 0x14.
         bus_write(x"00000000", x"00000014");
 
         bus_read(x"00000008", rd);
-        check("RX_READY low before any frame", rd(1) = '0');
+        check("RX_READY low before any frame", rd(1) = '0', errors);
 
         -- Correct-parity byte.
         send_byte(x"A5", false);
         wait for CLK_PERIOD * 2;
 
         bus_read(x"00000008", rd);
-        check("RX_READY set after correct-parity frame", rd(1) = '1');
-        check("PARITY_ERROR clear after correct-parity frame", rd(2) = '0');
+        check("RX_READY set after correct-parity frame", rd(1) = '1', errors);
+        check("PARITY_ERROR clear after correct-parity frame", rd(2) = '0', errors);
 
         bus_read(x"00000010", rd);  -- RX_DATA (word offset 4 = byte 0x10)
-        check("RX_DATA = 0xA5", to_integer(unsigned(rd)) = 16#A5#);
+        check("RX_DATA = 0xA5", to_integer(unsigned(rd)) = 16#A5#, errors);
 
         bus_read(x"00000008", rd);
-        check("RX_READY cleared by reading RX_DATA", rd(1) = '0');
+        check("RX_READY cleared by reading RX_DATA", rd(1) = '0', errors);
 
         -- Bad-parity byte: data must still come through correctly, only
         -- the error flag should fire.
@@ -190,11 +188,11 @@ begin
         wait for CLK_PERIOD * 2;
 
         bus_read(x"00000008", rd);
-        check("RX_READY set after bad-parity frame", rd(1) = '1');
-        check("PARITY_ERROR set after bad-parity frame", rd(2) = '1');
+        check("RX_READY set after bad-parity frame", rd(1) = '1', errors);
+        check("PARITY_ERROR set after bad-parity frame", rd(2) = '1', errors);
 
         bus_read(x"00000010", rd);
-        check("RX_DATA = 0x3C even with bad parity", to_integer(unsigned(rd)) = 16#3C#);
+        check("RX_DATA = 0x3C even with bad parity", to_integer(unsigned(rd)) = 16#3C#, errors);
 
         report "Total errors: " & integer'image(errors);
         if errors = 0 then

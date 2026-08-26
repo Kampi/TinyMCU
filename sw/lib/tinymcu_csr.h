@@ -17,8 +17,7 @@
 #define TINYMCU_MIE_MEIE (1u << 11) /**< External interrupt enable. */
 
 /**
- * @brief Install a trap handler's address into mtvec (Direct mode, the
- * only mode tinymcu_cpu.vhd implements: see README.md "Interrupts".
+ * @brief Install a trap handler's address into mtvec.
  * @param addr Address of the trap entry point (see tinymcu_trap.S's
  *             trap_entry); must be 4-byte aligned.
  */

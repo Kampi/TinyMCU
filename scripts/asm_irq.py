@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Hand-assembled IRQ/MRET round-trip test program for sim/tinymcu_tb_irq.vhd.
+"""Hand-assembled IRQ/MRET round-trip test program for
+sim/core/tinymcu_tb_irq.vhd.
 
-sim/tinymcu_tb_irq.vhd's register checks (x6 = 222, x7 > 0) are hardwired
-to this exact program (see its header comment for the expected layout), so
-unlike asm.py this script does not generate a checks block; the program
-here and the testbench must be kept in sync by hand if either changes.
+sim/core/tinymcu_tb_irq.vhd's register checks (x6 = 222, x7 > 0) are
+hardwired to this exact program (see its header comment for the expected
+layout), so unlike asm.py this script does not generate a checks block;
+the program here and the testbench must be kept in sync by hand if
+either changes.
 
 Program layout (word index -> byte address), for reference -- kept here as
 prose, not regenerated: if the emit() calls below change, re-run this
@@ -56,7 +58,7 @@ if __name__ == "__main__":
         while len(prog) < word_index:
             emit(ADDI(0, 0, 0), "nop (padding)")
 
-    HANDLER_ADDR = 0x40  # word index 16, see sim/tinymcu_tb_irq.vhd's header
+    HANDLER_ADDR = 0x40  # word index 16, see sim/core/tinymcu_tb_irq.vhd's header
 
     emit(ADDI(1, 0, HANDLER_ADDR), f"addi x1, x0, {hex(HANDLER_ADDR)}  (handler address)")
     emit(CSRRW(0, CSR_MTVEC, 1), "csrrw x0, mtvec, x1")

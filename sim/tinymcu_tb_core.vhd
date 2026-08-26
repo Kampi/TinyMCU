@@ -6,7 +6,7 @@
 --
 -- Create Date: 15.08.2026
 -- Design Name: TinyMCU
--- Module Name: tb_cpu - sim
+-- Module Name: tb_core - sim
 -- Project Name: TinyMCU
 -- Description:
 --   Self-checking testbench for the TinyMCU core (tinymcu.tinymcu_cpu).
@@ -28,10 +28,10 @@ use std.env.all;
 library tinymcu;
 use tinymcu.tinymcu_pkg.all;
 
-entity tb_cpu is
-end entity tb_cpu;
+entity tb_core is
+end entity tb_core;
 
-architecture sim of tb_cpu is
+architecture sim of tb_core is
 
     constant CLK_PERIOD : time := 10 ns;
 
@@ -39,18 +39,6 @@ architecture sim of tb_cpu is
     signal rst : std_ulogic := '1';
 
     signal dbg_regs : reg_array_t;
-
-    procedure check(name : string; actual : word_t; expected : word_t;
-                     variable err_count : inout integer) is
-    begin
-        if actual /= expected then
-            report "FAIL " & name & ": got 0x" & to_hex(actual) &
-                   " expected 0x" & to_hex(expected) severity error;
-            err_count := err_count + 1;
-        else
-            report "OK   " & name & " = 0x" & to_hex(actual);
-        end if;
-    end procedure;
 
 begin
 

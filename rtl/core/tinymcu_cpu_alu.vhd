@@ -25,10 +25,15 @@ use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_cpu_alu is
     port (
-        op_a   : in  word_t;
-        op_b   : in  word_t;
-        alu_op : in  std_ulogic_vector(14 downto 0);
-        result : out word_t
+        -- ALU operands
+        op_a_i      : in  word_t;
+        op_b_i      : in  word_t;
+
+        -- ALU operation
+        alu_op_i    : in  std_ulogic_vector(14 downto 0);
+
+        -- ALU result
+        result_o    : out word_t
     );
 end entity tinymcu_cpu_alu;
 
@@ -56,9 +61,8 @@ architecture tinymcu_cpu_alu_rtl of tinymcu_cpu_alu is
 
     -- CLZ/CTZ/CPOP (see ALU_CLZ/ALU_CTZ/ALU_CPOP): none of these have a ready-made numeric_std
     -- function, so a small loop each. All three take the same single parameter:
-    --   v - the value to count/scan (always op_a for these, since CLZ/CTZ/CPOP are unary, op_b
+    --   v - the value to count/scan (always op_a_i for these, since CLZ/CTZ/CPOP are unary, op_b_i
     --       is unused).
-
     -- Counts leading zero bits, scanning from v's highest-indexed bit down towards v's
     -- lowest-indexed bit.
     -- Returns: the number of zero bits before the first '1' bit; v'length (not v'length - 1) if
@@ -101,64 +105,64 @@ architecture tinymcu_cpu_alu_rtl of tinymcu_cpu_alu is
 
 begin
 
-    shamt <= to_integer(unsigned(op_b(4 downto 0)));
+    shamt <= to_integer(unsigned(op_b_i(4 downto 0)));
 
-    process (op_a, op_b, alu_op, shamt)
+    process (op_a_i, op_b_i, alu_op_i, shamt)
         variable a_s, b_s : signed(31 downto 0);
         variable a_u, b_u : unsigned(31 downto 0);
     begin
-        a_s := signed(op_a);
-        b_s := signed(op_b);
-        a_u := unsigned(op_a);
-        b_u := unsigned(op_b);
+        a_s := signed(op_a_i);
+        b_s := signed(op_b_i);
+        a_u := unsigned(op_a_i);
+        b_u := unsigned(op_b_i);
 
-        case alu_op is
-            when ALU_ADD    => result <= std_ulogic_vector(a_s + b_s);
-            when ALU_SUB    => result <= std_ulogic_vector(a_s - b_s);
-            when ALU_SLL    => result <= std_ulogic_vector(shift_left(a_u, shamt));
-            when ALU_SRL    => result <= std_ulogic_vector(shift_right(a_u, shamt));
-            when ALU_SRA    => result <= std_ulogic_vector(shift_right(a_s, shamt));
-            when ALU_AND    => result <= op_a and op_b;
-            when ALU_OR     => result <= op_a or op_b;
-            when ALU_XOR    => result <= op_a xor op_b;
-            when ALU_ANDN   => result <= op_a and not op_b;
-            when ALU_BCLR   => result <= op_a and not std_ulogic_vector(shift_left(to_unsigned(1, 32), shamt));
-            when ALU_SH1ADD => result <= std_ulogic_vector(b_u + shift_left(a_u, 1));
-            when ALU_SH2ADD => result <= std_ulogic_vector(b_u + shift_left(a_u, 2));
-            when ALU_SH3ADD => result <= std_ulogic_vector(b_u + shift_left(a_u, 3));
-            when ALU_ORN    => result <= op_a or not op_b;
-            when ALU_XNOR   => result <= not (op_a xor op_b);
-            when ALU_MIN    => result <= op_a when (a_s < b_s) else op_b;
-            when ALU_MINU   => result <= op_a when (a_u < b_u) else op_b;
-            when ALU_MAX    => result <= op_a when (a_s > b_s) else op_b;
-            when ALU_MAXU   => result <= op_a when (a_u > b_u) else op_b;
-            when ALU_ROL    => result <= std_ulogic_vector(shift_left(a_u, shamt)) or std_ulogic_vector(shift_right(a_u, 32 - shamt));
-            when ALU_ROR    => result <= std_ulogic_vector(shift_right(a_u, shamt)) or std_ulogic_vector(shift_left(a_u, 32 - shamt));
-            when ALU_CLMUL  => result <= clmul_full(op_a, op_b)(31 downto 0);
-            when ALU_CLMULH => result <= clmul_full(op_a, op_b)(63 downto 32);
-            when ALU_CLMULR => result <= clmul_full(op_a, op_b)(62 downto 31);
-            when ALU_BSET   => result <= op_a or std_ulogic_vector(shift_left(to_unsigned(1, 32), shamt));
-            when ALU_BINV   => result <= op_a xor std_ulogic_vector(shift_left(to_unsigned(1, 32), shamt));
-            when ALU_BEXT   => result <= (0 => op_a(shamt), others => '0');
-            when ALU_CLZ    => result <= std_ulogic_vector(to_unsigned(count_leading_zeros(op_a), 32));
-            when ALU_CTZ    => result <= std_ulogic_vector(to_unsigned(count_trailing_zeros(op_a), 32));
-            when ALU_CPOP   => result <= std_ulogic_vector(to_unsigned(popcount(op_a), 32));
-            when ALU_SEXTB  => result <= sext(op_a(7 downto 0), 32);
-            when ALU_SEXTH  => result <= sext(op_a(15 downto 0), 32);
+        case alu_op_i is
+            when ALU_ADD    => result_o <= std_ulogic_vector(a_s + b_s);
+            when ALU_SUB    => result_o <= std_ulogic_vector(a_s - b_s);
+            when ALU_SLL    => result_o <= std_ulogic_vector(shift_left(a_u, shamt));
+            when ALU_SRL    => result_o <= std_ulogic_vector(shift_right(a_u, shamt));
+            when ALU_SRA    => result_o <= std_ulogic_vector(shift_right(a_s, shamt));
+            when ALU_AND    => result_o <= op_a_i and op_b_i;
+            when ALU_OR     => result_o <= op_a_i or op_b_i;
+            when ALU_XOR    => result_o <= op_a_i xor op_b_i;
+            when ALU_ANDN   => result_o <= op_a_i and not op_b_i;
+            when ALU_BCLR   => result_o <= op_a_i and not std_ulogic_vector(shift_left(to_unsigned(1, 32), shamt));
+            when ALU_SH1ADD => result_o <= std_ulogic_vector(b_u + shift_left(a_u, 1));
+            when ALU_SH2ADD => result_o <= std_ulogic_vector(b_u + shift_left(a_u, 2));
+            when ALU_SH3ADD => result_o <= std_ulogic_vector(b_u + shift_left(a_u, 3));
+            when ALU_ORN    => result_o <= op_a_i or not op_b_i;
+            when ALU_XNOR   => result_o <= not (op_a_i xor op_b_i);
+            when ALU_MIN    => result_o <= op_a_i when (a_s < b_s) else op_b_i;
+            when ALU_MINU   => result_o <= op_a_i when (a_u < b_u) else op_b_i;
+            when ALU_MAX    => result_o <= op_a_i when (a_s > b_s) else op_b_i;
+            when ALU_MAXU   => result_o <= op_a_i when (a_u > b_u) else op_b_i;
+            when ALU_ROL    => result_o <= std_ulogic_vector(shift_left(a_u, shamt)) or std_ulogic_vector(shift_right(a_u, 32 - shamt));
+            when ALU_ROR    => result_o <= std_ulogic_vector(shift_right(a_u, shamt)) or std_ulogic_vector(shift_left(a_u, 32 - shamt));
+            when ALU_CLMUL  => result_o <= clmul_full(op_a_i, op_b_i)(31 downto 0);
+            when ALU_CLMULH => result_o <= clmul_full(op_a_i, op_b_i)(63 downto 32);
+            when ALU_CLMULR => result_o <= clmul_full(op_a_i, op_b_i)(62 downto 31);
+            when ALU_BSET   => result_o <= op_a_i or std_ulogic_vector(shift_left(to_unsigned(1, 32), shamt));
+            when ALU_BINV   => result_o <= op_a_i xor std_ulogic_vector(shift_left(to_unsigned(1, 32), shamt));
+            when ALU_BEXT   => result_o <= (0 => op_a_i(shamt), others => '0');
+            when ALU_CLZ    => result_o <= std_ulogic_vector(to_unsigned(count_leading_zeros(op_a_i), 32));
+            when ALU_CTZ    => result_o <= std_ulogic_vector(to_unsigned(count_trailing_zeros(op_a_i), 32));
+            when ALU_CPOP   => result_o <= std_ulogic_vector(to_unsigned(popcount(op_a_i), 32));
+            when ALU_SEXTB  => result_o <= sext(op_a_i(7 downto 0), 32);
+            when ALU_SEXTH  => result_o <= sext(op_a_i(15 downto 0), 32);
             when ALU_SLT    =>
                 if a_s < b_s then
-                    result <= (0 => '1', others => '0');
+                    result_o <= (0 => '1', others => '0');
                 else
-                    result <= (others => '0');
+                    result_o <= (others => '0');
                 end if;
             when ALU_SLTU   =>
                 if a_u < b_u then
-                    result <= (0 => '1', others => '0');
+                    result_o <= (0 => '1', others => '0');
                 else
-                    result <= (others => '0');
+                    result_o <= (others => '0');
                 end if;
-            when ALU_PASSB  => result <= op_b;
-            when others     => result <= (others => '0');
+            when ALU_PASSB  => result_o <= op_b_i;
+            when others     => result_o <= (others => '0');
         end case;
     end process;
 

@@ -200,6 +200,7 @@ begin
                 tx_o <= '1';
                 reg_tx_data <= (others => '0');
                 status_tx_active <= '0';
+
                 current_tx_state <= Tx_Idle;
             else
                 case current_tx_state is
@@ -213,9 +214,9 @@ begin
                         stopbits := stopbits_reg(reg_config(3 downto 2));
                         parity_mode := parity_reg(reg_config(5 downto 4));
 
-                        if uart_req_i.stb = '1' and uart_req_i.we = '1' and word_offset = UART_REG_TX_DATA
-                           and (reg_config(UART_BIT_CTS_ENABLE) = '0' or cts_i = '1') then
+                        if uart_req_i.stb = '1' and uart_req_i.we = '1' and word_offset = UART_REG_TX_DATA and (reg_config(UART_BIT_CTS_ENABLE) = '0' or cts_i = '1') then
                             reg_tx_data <= uart_req_i.data(8 downto 0);
+
                             current_tx_state <= Tx_Start_Bit;
                         else
                             current_tx_state <= Tx_Idle;
@@ -227,9 +228,11 @@ begin
 
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_tx_state <= Tx_Start_Bit;
                         else
                             counter := 0;
+
                             current_tx_state <= Tx_Data_Bits;
                         end if;
 
@@ -238,12 +241,14 @@ begin
 
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_tx_state <= Tx_Data_Bits;
                         else
                             counter := 0;
 
                             if num_databits < (datawidth - 1) then
                                 num_databits := num_databits + 1;
+
                                 current_tx_state <= Tx_Data_Bits;
                             else
                                 num_databits := 0;
@@ -264,9 +269,11 @@ begin
 
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_tx_state <= Tx_Parity_Bit;
                         else
                             counter := 0;
+
                             current_tx_state <= Tx_Stop_Bits;
                         end if;
 
@@ -275,12 +282,14 @@ begin
 
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_tx_state <= Tx_Stop_Bits;
                         else
                             counter := 0;
 
                             if num_stopbits < (stopbits - 1) then
                                 num_stopbits := num_stopbits + 1;
+
                                 current_tx_state <= Tx_Stop_Bits;
                             else
                                 current_tx_state <= Tx_Complete;
@@ -360,6 +369,7 @@ begin
                     when Rx_Start_Bit =>
                         if counter = (baudrate - 1) / 2 then
                             counter := 0;
+
                             if rx_shift_reg(1) = '0' then
                                 current_rx_state <= Rx_Data_Bits;
                             else
@@ -367,12 +377,14 @@ begin
                             end if;
                         else
                             counter := counter + 1;
+
                             current_rx_state <= Rx_Start_Bit;
                         end if;
 
                     when Rx_Data_Bits =>
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_rx_state <= Rx_Data_Bits;
                         else
                             counter := 0;
@@ -380,6 +392,7 @@ begin
 
                             if num_databits < (datawidth - 1) then
                                 num_databits := num_databits + 1;
+
                                 current_rx_state <= Rx_Data_Bits;
                             else
                                 num_databits := 0;
@@ -394,30 +407,36 @@ begin
                     when Rx_Parity_Bit =>
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_rx_state <= Rx_Parity_Bit;
                         else
                             counter := 0;
+
                             if parity_mode = Parity_Even then
                                 status_parity_error <= rx_shift_reg(1) xor (xor rx_data(datawidth - 1 downto 0));
                             else
                                 status_parity_error <= rx_shift_reg(1) xor (not (xor rx_data(datawidth - 1 downto 0)));
                             end if;
+
                             current_rx_state <= Rx_Stop_Bit;
                         end if;
 
                     when Rx_Stop_Bit =>
                         if counter < (baudrate - 1) then
                             counter := counter + 1;
+
                             current_rx_state <= Rx_Stop_Bit;
                         else
                             counter := 0;
 
                             if num_stopbits < (stopbits - 1) then
                                 num_stopbits := num_stopbits + 1;
+
                                 current_rx_state <= Rx_Stop_Bit;
                             else
                                 reg_rx_data <= rx_data;
                                 status_rx_ready <= '1';
+
                                 current_rx_state <= Rx_Complete;
                             end if;
                         end if;

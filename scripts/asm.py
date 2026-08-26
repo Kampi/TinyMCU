@@ -224,5 +224,3 @@ if __name__ == "__main__":
     print(f"Wrote {len(words)} word(s) into {args.vhdl_file}")
     print(f"Wrote {len(checks)} check(s) into {args.tb_file}")
     sys.exit(0)
-
-

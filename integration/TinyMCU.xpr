@@ -108,6 +108,13 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PPRDIR/../rtl/core/tinymcu_addr_decoder.vhd">
+        <FileInfo SFType="VHDL2008">
+          <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PPRDIR/../rtl/core/tinymcu_imem_bootrom.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>
@@ -136,6 +143,20 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PPRDIR/../rtl/core/tinymcu_cpu_mult.vhd">
+        <FileInfo SFType="VHDL2008">
+          <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../rtl/core/tinymcu_cpu_div.vhd">
+        <FileInfo SFType="VHDL2008">
+          <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PPRDIR/../rtl/core/tinymcu_cpu_alu.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>
@@ -144,13 +165,6 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/../rtl/core/tinymcu_cpu_csrfile.vhd">
-        <FileInfo SFType="VHDL2008">
-          <Attr Name="Library" Val="tinymcu"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <File Path="$PPRDIR/../rtl/core/tinymcu_addr_decoder.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>
           <Attr Name="UsedIn" Val="synthesis"/>
@@ -207,7 +221,7 @@
         </FileInfo>
       </File>
       <File Path="$PSRCDIR/sources_1/imports/rtl/tinymcu_top.vhd">
-        <FileInfo>
+        <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>
           <Attr Name="ImportPath" Val="$PPRDIR/../rtl/tinymcu_top.vhd"/>
           <Attr Name="ImportTime" Val="1787428390"/>
@@ -255,29 +269,6 @@
         <Option Name="TopAutoSet" Val="TRUE"/>
       </Config>
     </FileSet>
-    <FileSet Name="Simulation" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/Simulation" RelGenDir="$PGENDIR/Simulation">
-      <Filter Type="Srcs"/>
-      <File Path="$PPRDIR/../sim/tinymcu_tb_imem.vhd">
-        <FileInfo>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
-      <Config>
-        <Option Name="DesignMode" Val="RTL"/>
-        <Option Name="TopModule" Val="tb_cpu"/>
-        <Option Name="TopLib" Val="xil_defaultlib"/>
-        <Option Name="TopAutoSet" Val="TRUE"/>
-        <Option Name="TransportPathDelay" Val="0"/>
-        <Option Name="TransportIntDelay" Val="0"/>
-        <Option Name="SelectedSimModel" Val="rtl"/>
-        <Option Name="PamDesignTestbench" Val=""/>
-        <Option Name="PamDutBypassFile" Val="xil_dut_bypass"/>
-        <Option Name="PamSignalDriverFile" Val="xil_bypass_driver"/>
-        <Option Name="PamPseudoTop" Val="pseudo_tb"/>
-        <Option Name="SrcSet" Val="sources_1"/>
-      </Config>
-    </FileSet>
     <FileSet Name="Software" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/Software" RelGenDir="$PGENDIR/Software">
       <Filter Type="Srcs"/>
       <File Path="$PPRDIR/../sim/tinymcu_tb_software.vhd">
@@ -312,13 +303,14 @@
       <File Path="$PPRDIR/../sim/tinymcu_tb_irq.vhd">
         <FileInfo>
           <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="AutoDisabled" Val="1"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
-        <Option Name="TopModule" Val="tb_irq"/>
+        <Option Name="TopModule" Val="tinymcu_top"/>
         <Option Name="TopLib" Val="tinymcu"/>
         <Option Name="TopAutoSet" Val="TRUE"/>
         <Option Name="TransportPathDelay" Val="0"/>

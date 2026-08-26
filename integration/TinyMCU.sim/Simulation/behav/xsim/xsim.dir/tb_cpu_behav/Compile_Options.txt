@@ -1,1 +1,0 @@
---incr --debug "typical" --relax --mt "8" -L "xil_defaultlib" -L "tinymcu" -L "secureip" --snapshot "tb_cpu_behav" "xil_defaultlib.tb_cpu" -log "elaborate.log" 
