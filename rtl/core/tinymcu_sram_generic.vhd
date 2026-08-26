@@ -49,8 +49,6 @@ architecture tinymcu_sram_generic_rtl of tinymcu_sram_generic is
 
 begin
 
-    dout_o <= mem(to_integer(unsigned(addr_i)));
-
     process (clk_i)
     begin
         if rising_edge(clk_i) then
@@ -58,6 +56,8 @@ begin
                 if we_i = '1' then
                     mem(to_integer(unsigned(addr_i))) <= din_i;
                 end if;
+
+                dout_o <= mem(to_integer(unsigned(addr_i)));
             end if;
         end if;
     end process;

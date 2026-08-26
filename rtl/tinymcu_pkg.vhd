@@ -54,8 +54,8 @@ package tinymcu_pkg is
     -- TINYMCU_MIMPID_END
 
     constant ROM_BASE           : word_t := x"00000000";
-    constant ROM_END            : word_t := x"00001000";
-    constant FLASH_BASE         : word_t := x"00001000";
+    constant ROM_END            : word_t := x"00008000";
+    constant FLASH_BASE         : word_t := x"00008000";
     constant FLASH_END          : word_t := x"01000000";
     constant RAM_BASE           : word_t := x"02000000";
     constant RAM_END            : word_t := x"03000000";

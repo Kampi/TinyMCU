@@ -56,6 +56,7 @@ sw/                     C/asm firmware (see sw/*/Makefile)
 | Python 3 | Runs `scripts/*.py` (see [Scripts](#scripts)) | usually preinstalled |
 | GNU Make | Drives `rtl/Makefile` and `sw/*/Makefile` | `sudo apt install make` |
 | GTKWave *(optional)* | Views the `.ghw` waveform from `rtl/Makefile`'s `make wave` | `sudo apt install gtkwave` |
+| Picolibc | | `sudo apt install picolibc-riscv64-unknown-elf` |
 
 ## Extensions
 

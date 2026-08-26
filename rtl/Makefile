@@ -124,6 +124,16 @@ DIV_CPU_TB       := tb_div_cpu
 
 GHDLFLAGS := $(STD) --workdir=$(BUILD) -P$(BUILD)
 
+# --max-stack-alloc (ghdl -r only, mcode rejects it on -a/-e): GHDL's
+# mcode backend defaults to a 128 KB limit on elaboration-time objects;
+# tinymcu_imem_bootrom.vhd's boot-ROM array (mem_array_t,
+# IMEM_ADDR_WIDTH-sized) exceeds that once IMEM_ADDR_WIDTH grows past a
+# few KB of words, since GHDL stores each std_ulogic bit as a full byte
+# at simulation time (so a 32 KB ROM's word_t array costs 256 KB here,
+# not 32 KB) -- purely a simulator limitation, not a real hardware/BRAM
+# constraint.
+GHDLRUNFLAGS := --max-stack-alloc=1024
+
 .PHONY: all run run-core run-irq run-gpio run-timer run-uart run-mult run-mult-cpu \
         run-div run-div-cpu wave analyze analyze-irq analyze-gpio analyze-timer \
         analyze-uart analyze-mult analyze-mult-cpu analyze-div analyze-div-cpu \
@@ -167,10 +177,10 @@ elab: analyze
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(TB)
 
 run-core: elab
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(TB) $(GHDLRUNFLAGS)
 
 wave: elab
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(TB) --wave=$(BUILD)/$(TB).ghw
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(TB) $(GHDLRUNFLAGS) --wave=$(BUILD)/$(TB).ghw
 	@echo "Waveform written to $(BUILD)/$(TB).ghw"
 
 # Regenerates $(IMEM_VHD)'s PROGRAM constant from $(IRQ_ASM) (the
@@ -186,7 +196,7 @@ elab-irq: analyze-irq
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(IRQ_TB)
 
 run-irq: elab-irq
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(IRQ_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(IRQ_TB) $(GHDLRUNFLAGS)
 
 analyze-gpio: $(BUILD)
 	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
@@ -196,7 +206,7 @@ elab-gpio: analyze-gpio
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(GPIO_TB)
 
 run-gpio: elab-gpio
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(GPIO_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(GPIO_TB) $(GHDLRUNFLAGS)
 
 analyze-timer: $(BUILD)
 	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
@@ -206,7 +216,7 @@ elab-timer: analyze-timer
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(TIMER_TB)
 
 run-timer: elab-timer
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(TIMER_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(TIMER_TB) $(GHDLRUNFLAGS)
 
 analyze-uart: $(BUILD)
 	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
@@ -216,7 +226,7 @@ elab-uart: analyze-uart
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(UART_TB)
 
 run-uart: elab-uart
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(UART_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(UART_TB) $(GHDLRUNFLAGS)
 
 analyze-mult: $(BUILD)
 	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
@@ -226,7 +236,7 @@ elab-mult: analyze-mult
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(MULT_TB)
 
 run-mult: elab-mult
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(MULT_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(MULT_TB) $(GHDLRUNFLAGS)
 
 # Regenerates $(IMEM_VHD)'s PROGRAM constant from $(MULT_CPU_ASM) (the
 # M-extension pipeline-integration program instead of asm.py's demo
@@ -242,7 +252,7 @@ elab-mult-cpu: analyze-mult-cpu
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(MULT_CPU_TB)
 
 run-mult-cpu: elab-mult-cpu
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(MULT_CPU_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(MULT_CPU_TB) $(GHDLRUNFLAGS)
 
 analyze-div: $(BUILD)
 	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
@@ -252,7 +262,7 @@ elab-div: analyze-div
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(DIV_TB)
 
 run-div: elab-div
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(DIV_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(DIV_TB) $(GHDLRUNFLAGS)
 
 # Regenerates $(IMEM_VHD)'s PROGRAM constant from $(DIV_CPU_ASM) (the
 # M-extension divide pipeline-integration program instead of asm.py's
@@ -268,7 +278,7 @@ elab-div-cpu: analyze-div-cpu
 	$(GHDL) -e $(GHDLFLAGS) --work=work $(DIV_CPU_TB)
 
 run-div-cpu: elab-div-cpu
-	$(GHDL) -r $(GHDLFLAGS) --work=work $(DIV_CPU_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(DIV_CPU_TB) $(GHDLRUNFLAGS)
 
 clean:
 	rm -rf $(BUILD)

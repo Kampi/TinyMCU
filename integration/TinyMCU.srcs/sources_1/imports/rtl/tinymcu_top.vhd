@@ -25,7 +25,7 @@ use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_top is
     generic (
-        IMEM_ADDR_WIDTH : integer := 10;
+        IMEM_ADDR_WIDTH : integer := 13;
         RAM_ADDR_WIDTH  : integer := 10
     );
     port (

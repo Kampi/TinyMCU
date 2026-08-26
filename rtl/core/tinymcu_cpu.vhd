@@ -9,14 +9,28 @@
 -- Module Name: tinymcu_cpu - tinymcu_cpu_rtl
 -- Project Name: TinyMCU
 -- Description:
---   Minimal RV32 core with Harvard architecture and a simple
---   2-stage pipeline:
+--   RV32 core with Harvard architecture and a 3-stage pipeline:
 --
---     Stage 1 (IF)  Fetch    : PC addresses the instruction memory
---                               (tinymcu_imem)
---     Stage 2 (EX)  Execute  : decode (tinymcu_cpu_control), register read/write,
---                               ALU, branch/jump resolution, data memory
---                               access
+--     Stage 1 (IF)  Fetch    : pc_reg addresses the instruction memory
+--                              (tinymcu_imem); its boot-ROM read is
+--                              registered (BRAM-style, one cycle of
+--                              latency), so pc_if buffers the address
+--                              for one cycle to stay paired with the
+--                              instruction once it actually arrives.
+--     Stage 2 (ID)  Buffer   : instr_if becomes valid; pc_if/instr_if
+--                              are latched into pc_ex/instr_ex once
+--                              not stalled.
+--     Stage 3 (EX)  Execute  : decode (tinymcu_cpu_control), register read/write,
+--                              ALU, branch/jump resolution, data memory
+--                              access (tinymcu_sram's read is likewise
+--                              registered; its ack is delayed to match,
+--                              so the existing bus-stall mechanism
+--                              absorbs that latency without any extra
+--                              pipeline stage there).
+--
+--   A taken branch/jump/trap squashes two in-flight fetches (not one),
+--   and every stall (bus wait, mult/div busy) needs a two-cycle
+--   redirect-style recovery back to pc_if once it clears.
 --
 -- Dependencies:
 --   tinymcu_pkg, tinymcu_imem, tinymcu_cpu_control, tinymcu_cpu_regfile,
@@ -34,7 +48,7 @@ use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_cpu is
     generic (
-        IMEM_ADDR_WIDTH : integer := 10;
+        IMEM_ADDR_WIDTH : integer := 13;
         RAM_ADDR_WIDTH  : integer := 10;
 
         -- Simulation only: prints "PC=0x... INSTR=0x... <mnemonic>" every
@@ -73,13 +87,29 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal next_pc      : word_t;
     signal instr_if     : word_t;
 
-    -- IF/EX pipeline register
+    -- IF/ID buffer: tinymcu_imem's boot-ROM read is registered (BRAM-style, one cycle of latency, so
+    -- instr_if lags the pc_reg value that produced it by one cycle. c_if captures that same pc_reg 
+    -- value one cycle earlier, so it stays paired with instr_if once instr_if actually arrives.
+    signal pc_if        : word_t;
+
+    -- ID/EX pipeline register
     signal instr_ex     : word_t;
     signal pc_ex        : word_t;
-    signal dispatched   : std_ulogic; 
+
+    -- '1' for one cycle the first time a (new) instruction sits in EX
+    signal dispatched   : std_ulogic;
+
+    -- '1' for one extra cycle after redirect
+    signal redirect_d1  : std_ulogic;
 
     -- '1' while a multi cycle instruction is active to hold the pipeline
     signal stall        : std_ulogic;
+
+    -- '1' for exactly the cycle a stall (bus wait, mult/div busy)
+    signal stall_d1     : std_ulogic;
+
+    -- Flush the pipeline
+    signal resume_flush : std_ulogic;
 
     -- Decoded fields
     signal opcode       : std_ulogic_vector(6 downto 0);
@@ -185,47 +215,76 @@ begin
     u_imem : entity tinymcu.tinymcu_imem
         generic map (IMEM_ADDR_WIDTH => IMEM_ADDR_WIDTH)
         port map (
+            clk_i        => clk_i,
             fetch_addr_i => pc_reg,
             fetch_dout_o => instr_if,
             data_req_i   => imem_req,
             data_rsp_o   => imem_rsp
         );
 
+    resume_flush <= '1' when (stall_d1 = '1' and stall = '0') else '0';
+
     ----------------------------------------------------------------------
-    -- PC and IF/EX pipeline register
+    -- Stall logic
     ----------------------------------------------------------------------
     process (clk_i)
     begin
         if rising_edge(clk_i) then
             if rst_i = '1' then
-                pc_reg   <= (others => '0');
-                pc_ex    <= (others => '0');
-                instr_ex <= NOP_INSTR;
+                stall_d1 <= '0';
+            else
+                stall_d1 <= stall;
+            end if;
+        end if;
+    end process;
+
+    -- Hold the pipeline when
+    --  The bus slave hasn´t acked the message
+    --  The multiplier is busy
+    --  The division is busy
+    stall <= (cpu_req.stb and not cpu_rsp.ack) or mult_busy or div_busy;
+
+    ----------------------------------------------------------------------
+    -- PC and pipeline register
+    ----------------------------------------------------------------------
+    process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_i = '1' then
+                pc_reg      <= (others => '0');
+                pc_if       <= (others => '0');
+                pc_ex       <= (others => '0');
+                instr_ex    <= NOP_INSTR;
+                redirect_d1 <= '1';
             elsif stall = '1' then
                 -- Current EX instruction's memory access hasn't been
                 -- acknowledged yet. Hold PC and instr_ex/pc_ex exactly
                 -- as they are and re-issue the same request next cycle.
+                -- pc_if freezes right along with pc_reg here (it does
+                -- NOT update unconditionally) -- it's what remembers
+                -- the address resume_flush needs to re-fetch below.
                 null;
             else
-                pc_ex <= pc_reg;
+                pc_ex <= pc_if;
+                redirect_d1 <= redirect or resume_flush;
 
-                if redirect = '1' then
+                if redirect = '1' or redirect_d1 = '1' or resume_flush = '1' then
                     instr_ex <= NOP_INSTR;
                 else
                     instr_ex <= instr_if;
                 end if;
-                pc_reg <= next_pc;
+
+                if resume_flush = '1' then
+                    pc_reg <= pc_if;
+                else
+                    pc_if  <= pc_reg;
+                    pc_reg <= next_pc;
+                end if;
             end if;
         end if;
     end process;
 
     next_pc <= redirect_target when redirect = '1' else std_ulogic_vector(unsigned(pc_reg) + 4);
-
-    -- Hold die pipeline when
-    --  The bus slave hasn´t acked the message
-    --  The multiplier is busy
-    --  The division is busy
-    stall <= (cpu_req.stb and not cpu_rsp.ack) or mult_busy or div_busy;
 
     -- Use this process to generate a one cycle pulse at the beginning of each new instruction behind the pipeline
     process (clk_i)

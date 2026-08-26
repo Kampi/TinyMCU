@@ -44,7 +44,16 @@ architecture tinymcu_sram_rtl of tinymcu_sram is
 
 begin
 
-    rsp_o.ack <= '0' when (rst_i = '1') else req_i.stb;
+    process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_i = '1' then
+                rsp_o.ack <= '0';
+            else
+                rsp_o.ack <= req_i.stb;
+            end if;
+        end if;
+    end process;
 
     en <= req_i.ben when req_i.stb = '1' else "0000";
 

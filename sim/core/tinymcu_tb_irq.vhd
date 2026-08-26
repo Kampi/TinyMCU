@@ -42,7 +42,7 @@ begin
 
     dut : entity tinymcu.tinymcu_cpu
         generic map (
-            IMEM_ADDR_WIDTH => 10,
+            IMEM_ADDR_WIDTH => 13,
             RAM_ADDR_WIDTH  => 8,
             TRACE_ENABLE    => true
         )

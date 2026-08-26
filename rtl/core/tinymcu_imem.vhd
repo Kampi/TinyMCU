@@ -14,7 +14,7 @@
 --   instead of exposing each of them separately to tinymcu_cpu.vhd.
 --
 -- Dependencies:
---   tinymcu_pkg, tinymcu_imem_bootro
+--   tinymcu_pkg, tinymcu_imem_bootrom
 --
 --------------------------------------------------------------------------------
 
@@ -27,9 +27,12 @@ use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_imem is
     generic (
-        IMEM_ADDR_WIDTH : integer := 10
+        IMEM_ADDR_WIDTH : integer := 13
     );
     port (
+        -- Global control
+        clk_i : in std_logic;
+
         -- PC-facing side
         fetch_addr_i : in  word_t;
         fetch_dout_o : out word_t;
@@ -62,6 +65,7 @@ begin
     u_imem : entity tinymcu.tinymcu_imem_bootrom
         generic map (ADDR_WIDTH => IMEM_ADDR_WIDTH)
         port map (
+            clk_i        => clk_i,
             fetch_addr_i => fetch_addr_i,
             fetch_dout_o => fetch_dout(0),
             data_addr_i  => data_req_i.addr,
@@ -107,7 +111,17 @@ begin
     end process;
 
     data_rsp_o.data <= int_data;
-    data_rsp_o.ack  <= data_req_i.stb;
     data_rsp_o.err  <= '0' when ((unsigned(fetch_sel) /= 0) or (unsigned(data_sel) /= 0)) else '1';
+
+
+    ----------------------------------------------------------------------
+    -- Bus ackknowledge
+    ----------------------------------------------------------------------
+    process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            data_rsp_o.ack <= data_req_i.stb;
+        end if;
+    end process;
 
 end architecture tinymcu_imem_rtl;
