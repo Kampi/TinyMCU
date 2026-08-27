@@ -33,7 +33,7 @@ architecture sim of tb_timer is
     signal clk : std_ulogic := '0';
     signal rst : std_ulogic := '1';
     signal irq : std_ulogic;
-    signal req : bus_req_t := (addr => (others => '0'), data => (others => '0'), ben => (others => '0'), we => '0', stb => '0');
+    signal req : bus_req_t := BUS_REQ_IDLE;
     signal rsp : bus_rsp_t;
 
 begin

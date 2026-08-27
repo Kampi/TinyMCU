@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU UART</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tinymcu-docs.css">
+
+<style>
+  /* ---------- Tables: page-specific width; td.reg holds byte offsets
+     (hex values, not identifiers), so it stays plain ink rather than
+     the shared .ref accent (docs/tinymcu-docs.css). ---------- */
+  table.map { min-width: 640px; }
+  table.map td.reg {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .rw {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 5px;
+  }
+  .rw.rw-rw { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+  .rw.rw-ro { background: var(--surface-3); color: var(--ink-faint); }
+  .rw.rw-wo { background: var(--accent-3-soft); color: var(--accent-3-ink); }
+
+  /* ---------- Frame diagram ---------- */
+  .frame {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+  }
+  .frame-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-width: 46px;
+    height: 46px;
+    border-radius: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 4px;
+    text-align: center;
+  }
+  .frame-cell .sub { font-size: 9px; font-weight: 400; opacity: 0.8; }
+  .frame-cell.idle { background: transparent; border: 1px dashed var(--line-strong); color: var(--ink-faint); }
+  .frame-cell.start { background: var(--surface-3); color: var(--ink-dim); }
+  .frame-cell.data { background: var(--accent-soft); color: var(--accent-ink); }
+  .frame-cell.parity { background: var(--accent-3-soft); color: var(--accent-3-ink); border: 1px dashed var(--accent-3); }
+  .frame-cell.stop { background: var(--surface-3); color: var(--ink-dim); }
+  .frame-note { font-size: 12.5px; color: var(--ink-dim); }
+
+  /* ---------- Timing tables: page-specific width ---------- */
+  table.timing { min-width: 620px; }
+
+  /* ---------- API table: page-specific width ---------- */
+  table.api { min-width: 760px; }
+  .api-group {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--surface-2);
+  }
+  .api-group td { padding: 7px 12px; border-bottom: 1px solid var(--line-strong); }
+
+  /* ---------- Print: page-specific additions on top of the shared
+     print base (docs/tinymcu-docs.css) ---------- */
+  @media print {
+    .note { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; rtl/peripherals/tinymcu_periph_uart.vhd</div>
+    <h1>UART</h1>
+    <p>
+      One transmit and one receive shift register, framing configured via <span class="ref">CONFIG</span>
+      (data bits, stop bits, parity), optional RTS/CTS flow control, and a single
+      RX_READY interrupt whose flag stays tied to <span class="ref">STATUS</span> until the
+      received byte is actually read.
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Register Map</h2>
+      <span class="section-sub">0x0400_0200-0x0400_02FF</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="map">
+        <thead><tr><th>Offset</th><th>Name</th><th></th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="reg">0x00</td><td class="field">CONFIG</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Bits 1:0 = data bits (<code>databits_reg</code>); bits 3:2 = stop bits (<code>stopbits_reg</code>); bits 5:4 = parity (<code>parity_reg</code>); bit 6 = RTS enable; bit 7 = CTS enable. See Framing below.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x04</td><td class="field">BAUDRATE</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Number of <code>clk_i</code> cycles per UART bit. There is no hardware divider - software computes <code>clk_i</code> frequency / desired baud rate and writes the raw cycle count here.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x08</td><td class="field">STATUS</td><td><span class="rw rw-ro">RO</span></td>
+            <td class="desc">Bit 0 = TX_ACTIVE; bit 1 = RX_READY, a received byte is waiting in RX_DATA (cleared by reading RX_DATA); bit 2 = PARITY_ERROR on the last received byte. Not in the register-write process's case statement, so writes are silently dropped.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x0C</td><td class="field">TX_DATA</td><td><span class="rw rw-wo">WO</span></td>
+            <td class="desc">Write to start a transmission. Only accepted while <code>Tx_Idle</code> and, if CTS enable is set, while <code>cts_i = '1'</code>. Reads back as 0.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x10</td><td class="field">RX_DATA</td><td><span class="rw rw-ro">RO</span></td>
+            <td class="desc">Last successfully received byte (low 8 or 9 bits, depending on the configured data width). Reading it clears STATUS.RX_READY.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x14</td><td class="field">INT_CONFIG</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Bit 0 = RX_READY interrupt enable. Bits 31:1 unused.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x18</td><td class="field">INT_STATUS</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Bit 0 = RX_READY interrupt flag, tied to STATUS.RX_READY (see Interrupts below). Write 0 to clear - only sticks once STATUS.RX_READY has gone low too, i.e. RX_DATA has been read.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Framing</h2>
+      <span class="section-sub">CONFIG bits 5:0, decoded by databits_reg / stopbits_reg / parity_reg</span>
+    </div>
+    <p class="lead">
+      Three small lookup functions turn <span class="ref">CONFIG</span>'s 2-bit sub-fields into the
+      actual values the Tx/Rx state machines use. Both <span class="ref">Tx_Idle</span> and
+      <span class="ref">Rx_Idle</span> call all three at the start of every frame, latching the
+      result into local variables for that one transmission/reception - a
+      <span class="ref">CONFIG</span> write mid-frame never disturbs a frame already in flight.
+    </p>
+
+    <div class="table-wrap">
+      <table class="map">
+        <thead><tr><th>Field</th><th>Bits</th><th>Encoding</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="field">Data bits</td><td class="reg">1:0</td>
+            <td class="desc">00 = 8, 01 = 7, 10 = 9, 11 = unused (falls back to 8)</td>
+            <td class="reg">databits_reg</td>
+          </tr>
+          <tr>
+            <td class="field">Stop bits</td><td class="reg">3:2</td>
+            <td class="desc">00 = 1, 01 = 2, 10/11 = unused (falls back to 1)</td>
+            <td class="reg">stopbits_reg</td>
+          </tr>
+          <tr>
+            <td class="field">Parity</td><td class="reg">5:4</td>
+            <td class="desc">00 = none, 01 = even, 10 = odd, 11 = unused (falls back to none)</td>
+            <td class="reg">parity_reg</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="lead">A frame on the wire, LSB-first, both directions:</p>
+    <div class="frame">
+      <span class="frame-cell idle">idle<span class="sub">'1'</span></span>
+      <span class="frame-cell start">start<span class="sub">'0'</span></span>
+      <span class="frame-cell data">d0</span>
+      <span class="frame-cell data">d1</span>
+      <span class="frame-cell data">&hellip;</span>
+      <span class="frame-cell data">d(N-1)</span>
+      <span class="frame-cell parity">parity<span class="sub">optional</span></span>
+      <span class="frame-cell stop">stop<span class="sub">'1'</span></span>
+      <span class="frame-cell stop">stop<span class="sub">optional</span></span>
+      <span class="frame-cell idle">idle<span class="sub">'1'</span></span>
+    </div>
+    <p class="frame-note">
+      N = the decoded data-bit count (7/8/9); the parity cell only exists when parity &ne; none;
+      the second stop cell only exists when stop bits = 2. Every cell occupies exactly
+      <span class="ref">BAUDRATE</span> clock cycles.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Transmit</h2>
+      <span class="section-sub">Tx_Idle &rarr; Tx_Start_Bit &rarr; Tx_Data_Bits &rarr; [Tx_Parity_Bit] &rarr; Tx_Stop_Bits &rarr; Tx_Complete</span>
+    </div>
+    <p class="lead">
+      A write to <span class="ref">TX_DATA</span> while idle (and, if CTS enable is set,
+      <span class="ref">cts_i</span> = <code>'1'</code>) latches the byte into
+      <span class="ref">reg_tx_data</span> and starts the state machine. Each state drives
+      <span class="ref">tx_o</span> for exactly <span class="ref">BAUDRATE</span> cycles before advancing:
+      the start bit (<code>'0'</code>), <span class="ref">datawidth</span> data bits LSB-first, an
+      optional parity bit (even = XOR of the data bits, odd = its complement), then
+      <span class="ref">stopbits</span> stop bits (<code>'1'</code>). <span class="ref">STATUS</span>.TX_ACTIVE
+      is set for the whole transmission and clears again in <span class="ref">Tx_Complete</span>.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Receive</h2>
+      <span class="section-sub">Rx_Idle &rarr; Rx_Start_Bit &rarr; Rx_Data_Bits &rarr; [Rx_Parity_Bit] &rarr; Rx_Stop_Bit &rarr; Rx_Complete</span>
+    </div>
+    <p class="lead">
+      <span class="ref">rx_i</span> passes through a 2-stage synchronizer
+      (<span class="ref">rx_shift_reg</span>) before the state machine ever looks at it, so a
+      metastable sample on the async input line can't propagate into the frame logic.
+      <span class="ref">Rx_Idle</span> watches for the falling start-bit edge, then
+      <span class="ref">Rx_Start_Bit</span> waits to the middle of the bit
+      (<code>(BAUDRATE-1)/2</code> cycles) and re-checks the line is still low before committing -
+      a mid-bit glitch that already returned high is treated as a false start and the machine
+      goes straight back to <span class="ref">Rx_Idle</span>.
+    </p>
+    <p class="lead">
+      From there every bit is centered and sampled once per <span class="ref">BAUDRATE</span>-cycle
+      slot, LSB-first into <span class="ref">rx_data</span>. If parity is configured,
+      <span class="ref">Rx_Parity_Bit</span> recomputes the expected parity from the received data
+      bits and compares it against the bit actually seen on the wire, latching any mismatch into
+      <span class="ref">STATUS</span>.PARITY_ERROR - the byte itself is still accepted either way.
+      On the final stop bit, <span class="ref">reg_rx_data</span> is updated and
+      <span class="ref">STATUS</span>.RX_READY set.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Interrupts</h2>
+      <span class="section-sub">single source, level-tied to STATUS.RX_READY</span>
+    </div>
+    <p class="lead">
+      Unlike GPIO's edge-latched flags, the RX_READY interrupt is a level: every cycle
+      <span class="ref">STATUS</span>.RX_READY = <code>'1'</code> and
+      <span class="ref">INT_CONFIG</span> bit 0 is set, the "set the interrupt flags" branch
+      re-asserts <span class="ref">INT_STATUS</span> bit 0. A software write to
+      <span class="ref">INT_STATUS</span> only wins the one cycle it happens on - if the byte is
+      still unread the very next cycle re-fires the flag.
+    </p>
+
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead><tr><th>step</th><th>byte received</th><th>write 0 to INT_STATUS</th><th>read RX_DATA</th><th>write 0 to INT_STATUS</th></tr></thead>
+        <tbody>
+          <tr><th>STATUS.RX_READY</th><td><span class="cell-tag tag-hi">1</span></td><td>1</td><td><span class="cell-tag tag-ok">0</span></td><td>0</td></tr>
+          <tr><th>INT_STATUS bit 0</th><td><span class="cell-tag tag-hi">1</span></td><td><span class="cell-tag tag-hold">1</span></td><td>1</td><td><span class="cell-tag tag-ok">0</span></td></tr>
+          <tr><th>irq_o</th><td>1</td><td>1</td><td>1</td><td><span class="cell-tag tag-ok">0</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead">
+      Clearing at "write 0" (second column) doesn't stick - <span class="ref">STATUS</span>.RX_READY is
+      still <code>'1'</code>, so the flag is back to <code>'1'</code> one cycle later. Only once
+      <span class="ref">RX_DATA</span> has actually been read does a following clear hold, since the
+      "set" branch's condition is no longer true.
+      <span class="ref">irq_o</span> is a direct combinational read of
+      <span class="ref">INT_STATUS</span> bit 0, so it tracks the table exactly.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Software API</h2>
+      <span class="section-sub">sw/lib/tinymcu_uart.h</span>
+    </div>
+    <div class="table-wrap">
+      <table class="api">
+        <thead><tr><th>Function</th><th>Description</th><th>Register effect</th></tr></thead>
+        <tbody>
+          <tr class="api-group"><td colspan="3">Configuration</td></tr>
+          <tr><td class="fn">tinymcu_uart_init(clks_per_bit, databits, stopbits, parity)</td><td class="desc">Configure framing and baud rate, ready to transmit.</td><td class="eff">CONFIG = databits|stopbits|parity, BAUDRATE = clks_per_bit</td></tr>
+
+          <tr class="api-group"><td colspan="3">Transmit</td></tr>
+          <tr><td class="fn">tinymcu_uart_putc(c)</td><td class="desc">Send a single byte, blocking until any transmission in progress finishes first.</td><td class="eff">wait on STATUS.TX_ACTIVE, then TX_DATA = c</td></tr>
+          <tr><td class="fn">tinymcu_uart_puts(s)</td><td class="desc">Send a NUL-terminated string, one byte at a time via putc().</td><td class="eff">repeated putc()</td></tr>
+
+          <tr class="api-group"><td colspan="3">Receive</td></tr>
+          <tr><td class="fn">tinymcu_uart_rx_ready(void)</td><td class="desc">Check whether a received byte is waiting in RX_DATA.</td><td class="eff">STATUS bit 1</td></tr>
+          <tr><td class="fn">tinymcu_uart_rx_parity_error(void)</td><td class="desc">Check whether the last received byte failed its parity check.</td><td class="eff">STATUS bit 2</td></tr>
+          <tr><td class="fn">tinymcu_uart_getc(void)</td><td class="desc">Receive a single byte, blocking until one is available. Reading RX_DATA is what clears STATUS.RX_READY.</td><td class="eff">wait on rx_ready(), then read RX_DATA</td></tr>
+
+          <tr class="api-group"><td colspan="3">Interrupts</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_enable(void)</td><td class="desc">Enable the RX_READY interrupt.</td><td class="eff">INT_CONFIG bit 0 = 1</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_disable(void)</td><td class="desc">Disable the RX_READY interrupt. Does not clear an already-pending flag.</td><td class="eff">INT_CONFIG bit 0 = 0</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_pending(void)</td><td class="desc">Check whether the RX_READY interrupt flag is currently set.</td><td class="eff">INT_STATUS bit 0</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_clear(void)</td><td class="desc">Clear the RX_READY interrupt flag. Only sticks once RX_DATA has been read - see Interrupts above.</td><td class="eff">INT_STATUS bit 0 = 0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Notes</h2>
+    </div>
+    <div class="notes-grid">
+      <div class="note">
+        <div class="note-head">Clear the flag by reading, not just writing</div>
+        <p>
+          Because <span class="ref">INT_STATUS</span> is tied to <span class="ref">STATUS</span>.RX_READY,
+          an ISR must call <span class="ref">tinymcu_uart_getc()</span> (or read
+          <span class="ref">RX_DATA</span> directly) before
+          <span class="ref">tinymcu_uart_irq_clear()</span> - clearing first just gets overwritten
+          the next cycle.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">No hardware baud divider</div>
+        <p>
+          <span class="ref">BAUDRATE</span> holds the raw cycle count per bit, not a prescaler
+          value - the caller computes <code>clk_i</code> frequency / desired baud rate itself
+          before writing it.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">CONFIG changes never disturb an in-flight frame</div>
+        <p>
+          <span class="ref">databits_reg</span>/<span class="ref">stopbits_reg</span>/<span class="ref">parity_reg</span>
+          are only evaluated once, in <span class="ref">Tx_Idle</span>/<span class="ref">Rx_Idle</span> -
+          a new frame always picks up the latest <span class="ref">CONFIG</span>, but one already
+          in progress keeps running with whatever it latched at its start.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">Only one interrupt source</div>
+        <p>
+          There's no TX_ACTIVE or PARITY_ERROR interrupt - <span class="ref">INT_CONFIG</span>/<span class="ref">INT_STATUS</span>
+          only ever cover RX_READY (bit 0), unlike GPIO's one-bit-per-pin scheme.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">rtl/peripherals/tinymcu_periph_uart.vhd &middot; sw/lib/tinymcu_uart.h &middot; sim/peripherals/tinymcu_tb_uart.vhd</span>
+  </footer>
+
+</main>
+
+</body>
+</html>

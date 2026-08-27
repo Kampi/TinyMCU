@@ -39,3 +39,19 @@ unsigned int tinymcu_uart_getc(void) {
     }
     return TINYMCU_UART->RX_DATA;
 }
+
+void tinymcu_uart_irq_enable(void) {
+    TINYMCU_UART->INT_CONFIG |= TINYMCU_UART_INT_RX_READY;
+}
+
+void tinymcu_uart_irq_disable(void) {
+    TINYMCU_UART->INT_CONFIG &= ~TINYMCU_UART_INT_RX_READY;
+}
+
+unsigned int tinymcu_uart_irq_pending(void) {
+    return TINYMCU_UART->INT_STATUS & TINYMCU_UART_INT_RX_READY;
+}
+
+void tinymcu_uart_irq_clear(void) {
+    TINYMCU_UART->INT_STATUS &= ~TINYMCU_UART_INT_RX_READY;
+}

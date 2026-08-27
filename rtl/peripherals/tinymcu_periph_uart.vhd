@@ -34,21 +34,29 @@
 --  2               STATUS          RW      UART status register
 --                                              Bit                     Description
 --                                              0                       Transmission active
---                                              1                       Received byte ready (reg_rx_data valid);
---                                                                      cleared by reading RX_DATA, or overwritten
+--                                              1                       Received byte ready (reg_rx_data valid).
+--                                                                      Cleared by reading RX_DATA, or overwritten
 --                                                                      by the next received byte, whichever first.
 --                                              2                       Parity error on the last received byte.
 --  3               TX_DATA         W       Write to start a transmission (only accepted while idle).
 --  4               RX_DATA         R       Last successfully received byte.
+--  5               INT_CONFIG      RW      Interrupt enable register.
+--                                              Bit                     Description
+--                                              0                       RX_READY interrupt enable.
+--                                              31:1                    Unused.
+--  6               INT_STATUS      RW      Interrupt status register.
+--                                              Bit                     Description
+--                                              0                       RX_READY interrupt flag. Tied to STATUS.RX_READY: set every
+--                                                                      cycle STATUS.RX_READY = '1' and the interrupt is enabled.
+--                                                                      Write to '0' to clear it but this only sticks once
+--                                                                      STATUS.RX_READY has gone low too, i.e. read RX_DATA first,
+--                                                                      or the flag re-fires the very next cycle.
+--                                              31:1                    Unused.
 --
 -- Dependencies:
 --   tinymcu_pkg
 --
 --------------------------------------------------------------------------------
-
--- TODO:
---  - Add FIFO
---  - Add support for interrupts
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -89,32 +97,40 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
     constant UART_REG_STATUS        : integer := 2;
     constant UART_REG_TX_DATA       : integer := 3;
     constant UART_REG_RX_DATA       : integer := 4;
+    constant UART_REG_INT_CONFIG    : integer := 5;
+    constant UART_REG_INT_STATUS    : integer := 6;
 
     constant UART_BIT_TX_ACTIVE     : integer := 0;
     constant UART_BIT_RX_READY      : integer := 1;
     constant UART_BIT_PARITY_ERROR  : integer := 2;
     constant UART_BIT_RTS_ENABLE    : integer := 6;
     constant UART_BIT_CTS_ENABLE    : integer := 7;
+    constant UART_BIT_RX_INT_ENABLE : integer := 0;
+    constant UART_BIT_RX_INT_FLAG   : integer := 0;
 
     signal reg_config       : word_t        := (others => '0');
     signal reg_baudrate     : word_t        := (others => '0');
     signal reg_status       : word_t        := (others => '0');
-    signal reg_tx_data      : std_ulogic_vector(8 downto 0);
-    signal reg_rx_data      : std_ulogic_vector(8 downto 0) := (others => '0');
-
+    signal reg_int_config   : word_t        := (others => '0');
+    signal reg_int_status   : word_t        := (others => '0');
     signal rdata            : word_t;
 
     signal status_tx_active   : std_ulogic  := '0';
     signal status_rx_ready    : std_ulogic  := '0';
     signal status_parity_error : std_ulogic := '0';
 
-    signal rx_shift_reg           : std_ulogic_vector(1 downto 0) := (others => '0');
-    signal rx_data                : std_ulogic_vector(8 downto 0) := (others => '0');
+    signal rx_shift_reg     : std_ulogic_vector(1 downto 0) := (others => '0');
+    signal rx_data          : std_ulogic_vector(8 downto 0) := (others => '0');
+    signal reg_tx_data      : std_ulogic_vector(8 downto 0);
+    signal reg_rx_data      : std_ulogic_vector(8 downto 0) := (others => '0');
 
     signal word_offset      : integer range 0 to 63;
     signal current_tx_state : UART_Tx_State_t := Tx_Idle;
     signal current_rx_state : UART_Rx_State_t := Rx_Idle;
 
+    -- Decodes CONFIG bits 1:0 into the number of data bits per frame.
+    --   databits - CONFIG(1 downto 0), the "Transmission length" field.
+    -- Returns: 8, 7 or 9. "11" is unused and also returns 8.
     function databits_reg(databits : std_ulogic_vector(1 downto 0)) return integer is
     begin
         case databits is
@@ -125,6 +141,9 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
         end case;
     end function;
 
+    -- Decodes CONFIG bits 3:2 into the number of stop bits per frame.
+    --   stopbits - CONFIG(3 downto 2), the "Stop bits" field.
+    -- Returns: 2 for "01", 1 otherwise ("00", "10" and the unused "11").
     function stopbits_reg(stopbits : std_ulogic_vector(1 downto 0)) return integer is
     begin
         case stopbits is
@@ -133,6 +152,10 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
         end case;
     end function;
 
+    -- Decodes CONFIG bits 5:4 into the parity mode used for the frame.
+    --   parity - CONFIG(5 downto 4), the "Parity bits" field.
+    -- Returns: Parity_Even/Parity_Odd, or Parity_None for "00" and the
+    -- unused "11" encoding.
     function parity_reg(parity : std_ulogic_vector(1 downto 0)) return UART_Parity_Mode_t is
     begin
         case parity is
@@ -160,6 +183,7 @@ begin
                 case word_offset is
                     when UART_REG_CONFIG        => reg_config       <= byte_merge(reg_config, uart_req_i.data, uart_req_i.ben);
                     when UART_REG_BAUDRATE      => reg_baudrate     <= byte_merge(reg_baudrate, uart_req_i.data, uart_req_i.ben);
+                    when UART_REG_INT_CONFIG    => reg_int_config   <= byte_merge(reg_int_config, uart_req_i.data, uart_req_i.ben);
                     when others                 => null;
                 end case;
             end if;
@@ -169,16 +193,22 @@ begin
     ----------------------------------------------------------------------
     -- Register reads
     ----------------------------------------------------------------------
-    process (word_offset, reg_config, reg_baudrate, reg_status, reg_rx_data)
+    process (word_offset, reg_config, reg_baudrate, reg_status, reg_rx_data, reg_int_config, reg_int_status)
     begin
         case word_offset is
             when UART_REG_CONFIG        => rdata <= reg_config;
             when UART_REG_BAUDRATE      => rdata <= reg_baudrate;
             when UART_REG_STATUS        => rdata <= reg_status;
             when UART_REG_RX_DATA       => rdata <= std_ulogic_vector(resize(unsigned(reg_rx_data), 32));
+            when UART_REG_INT_CONFIG    => rdata <= reg_int_config;
+            when UART_REG_INT_STATUS    => rdata <= reg_int_status;
             when others                 => rdata <= (others => '0');
         end case;
     end process;
+
+    uart_rsp_o.data <= rdata;
+    uart_rsp_o.ack  <= uart_req_i.stb;
+    uart_rsp_o.err  <= '0';
 
     ----------------------------------------------------------------------
     -- Tx process
@@ -459,10 +489,30 @@ begin
                    UART_BIT_PARITY_ERROR => status_parity_error,
                    others                => '0');
 
-    uart_rsp_o.data <= rdata;
-    uart_rsp_o.ack  <= uart_req_i.stb;
-    uart_rsp_o.err  <= '0';
-
     rts_o <= not status_rx_ready when (reg_config(UART_BIT_RTS_ENABLE) = '1') else '1';
+
+    ----------------------------------------------------------------------
+    -- Interrupt flags generation
+    ----------------------------------------------------------------------
+    process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_i = '1' then
+                reg_int_status  <= (others => '0');
+            else
+                -- Software clear (write bit to '0')
+                if uart_req_i.stb = '1' and uart_req_i.we = '1' and word_offset = UART_REG_INT_STATUS then
+                    reg_int_status <= byte_merge(reg_int_status, uart_req_i.data, uart_req_i.ben);
+                -- Set the interrupt flags
+                else
+                    if reg_status(UART_BIT_RX_READY) = '1' and reg_int_config(UART_BIT_RX_INT_ENABLE) = '1' then
+                        reg_int_status(UART_BIT_RX_INT_FLAG) <= '1';
+                    end if;
+                end if;
+            end if;
+        end if;
+    end process;
+
+    irq_o <= '1' when reg_int_status(UART_BIT_RX_INT_FLAG) = '1' else '0';
 
 end architecture tinymcu_periph_uart_rtl;

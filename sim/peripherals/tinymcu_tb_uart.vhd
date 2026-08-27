@@ -39,7 +39,8 @@ architecture sim of tb_uart is
     signal rx  : std_ulogic := '1';
     signal rts : std_ulogic;
     signal cts : std_ulogic := '1';
-    signal req : bus_req_t := (addr => (others => '0'), data => (others => '0'), ben => (others => '0'), we => '0', stb => '0');
+    signal irq : std_ulogic;
+    signal req : bus_req_t := BUS_REQ_IDLE;
     signal rsp : bus_rsp_t;
 
 begin
@@ -54,6 +55,7 @@ begin
             rx_i => rx,
             rts_o => rts,
             cts_i => cts,
+            irq_o => irq,
             uart_req_i => req,
             uart_rsp_o => rsp
         );
@@ -193,6 +195,53 @@ begin
 
         bus_read(x"00000010", rd);
         check("RX_DATA = 0x3C even with bad parity", to_integer(unsigned(rd)) = 16#3C#, errors);
+
+        -- ---- Interrupts ----
+
+        bus_read(x"00000014", rd);  -- INT_CONFIG (word offset 5)
+        check("INT_CONFIG resets to 0", to_integer(unsigned(rd)) = 0, errors);
+        bus_read(x"00000018", rd);  -- INT_STATUS (word offset 6)
+        check("INT_STATUS resets to 0", to_integer(unsigned(rd)) = 0, errors);
+        check("irq_o low with nothing enabled", irq = '0', errors);
+
+        -- A byte arrives with the RX interrupt still disabled -- must not
+        -- set the flag or raise irq_o.
+        send_byte(x"11", false);
+        wait for CLK_PERIOD * 2;
+        bus_read(x"00000018", rd);
+        check("received byte with interrupt disabled leaves INT_STATUS clear", rd(0) = '0', errors);
+        check("irq_o stays low with interrupt disabled", irq = '0', errors);
+
+        bus_read(x"00000010", rd);  -- consume the byte, clears STATUS.RX_READY
+        check("RX_DATA = 0x11", to_integer(unsigned(rd)) = 16#11#, errors);
+
+        -- Enable the RX interrupt, then receive a byte.
+        bus_write(x"00000014", x"00000001");  -- INT_CONFIG bit0 = 1
+        send_byte(x"22", false);
+        wait for CLK_PERIOD * 2;
+        bus_read(x"00000018", rd);
+        check("INT_STATUS set after a received byte with interrupt enabled", rd(0) = '1', errors);
+        check("irq_o goes high", irq = '1', errors);
+
+        -- Writing 0 to INT_STATUS without reading RX_DATA first doesn't
+        -- stick: STATUS.RX_READY is still set, so the "set" branch re-fires
+        -- the flag the very next cycle.
+        bus_write(x"00000018", x"00000000");
+        wait for CLK_PERIOD * 2;
+        bus_read(x"00000018", rd);
+        check("clearing INT_STATUS without reading RX_DATA re-fires immediately", rd(0) = '1', errors);
+        check("irq_o stays high", irq = '1', errors);
+
+        -- Read RX_DATA first (clears STATUS.RX_READY), then clear
+        -- INT_STATUS -- this time it sticks.
+        bus_read(x"00000010", rd);
+        check("RX_DATA = 0x22", to_integer(unsigned(rd)) = 16#22#, errors);
+
+        bus_write(x"00000018", x"00000000");
+        wait for CLK_PERIOD * 2;
+        bus_read(x"00000018", rd);
+        check("INT_STATUS clears for good once RX_DATA has been read", rd(0) = '0', errors);
+        check("irq_o drops", irq = '0', errors);
 
         report "Total errors: " & integer'image(errors);
         if errors = 0 then

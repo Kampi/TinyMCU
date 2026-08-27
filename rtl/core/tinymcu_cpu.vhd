@@ -48,8 +48,8 @@ use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_cpu is
     generic (
-        IMEM_ADDR_WIDTH : integer := 13;
-        RAM_ADDR_WIDTH  : integer := 10;
+        IMEM_ADDR_WIDTH : integer := 13;  -- 2^13 words = 32 KB Boot ROM
+        RAM_ADDR_WIDTH  : integer := 14;  -- 2^14 words = 64 KB SRAM
 
         -- Simulation only: prints "PC=0x... INSTR=0x... <mnemonic>" every
         -- cycle an instruction is in EX, using tinymcu_pkg.vhd's
@@ -263,9 +263,6 @@ begin
                 -- Current EX instruction's memory access hasn't been
                 -- acknowledged yet. Hold PC and instr_ex/pc_ex exactly
                 -- as they are and re-issue the same request next cycle.
-                -- pc_if freezes right along with pc_reg here (it does
-                -- NOT update unconditionally) -- it's what remembers
-                -- the address resume_flush needs to re-fetch below.
                 null;
             else
                 pc_ex <= pc_if;
@@ -689,7 +686,7 @@ begin
             rst_i       => rst_i,
             uart_req_i  => uart_req,
             uart_rsp_o  => uart_rsp,
-            uart_irq_o  => uart_irq,
+            irq_o       => uart_irq,
             tx_o        => uart_tx_o,
             rx_i        => uart_rx_i,
             rts_o       => uart_rts_o,

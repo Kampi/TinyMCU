@@ -11,8 +11,7 @@
 -- Description:
 --   32 x 32-bit RISC-V register file. x0 is hardwired to zero. Reads are
 --   asynchronous (combinational), writes are synchronous to the rising
---   clock edge. Since exactly one instruction reads and writes the
---   register file per cycle in the 2-stage core, no forwarding is needed.
+--   clock edge.
 --
 -- Dependencies:
 --   tinymcu_pkg

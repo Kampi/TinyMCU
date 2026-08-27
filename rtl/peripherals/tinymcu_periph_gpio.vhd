@@ -76,6 +76,7 @@ architecture tinymcu_periph_gpio_rtl of tinymcu_periph_gpio is
     constant GPIO_REG_INT_STATUS    : integer := 7;
 
     constant GPIO_BIT_GLOB_INT      : integer := 0;
+
     constant GPIO_DEBOUNCE_LSB      : integer := 1;
     constant GPIO_DEBOUNCE_MSB      : integer := GPIO_DEBOUNCE_LSB + DEBOUNCE_WIDTH - 1;
 
