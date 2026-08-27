@@ -19,7 +19,8 @@ from pathlib import Path
 
 from lib.rom_writer import DEFAULT_VHDL_FILE, generate_program_block, splice_vhdl
 
-DEFAULT_MAX_WORDS = 1024  # matches tinymcu_imem_bootrom's default ADDR_WIDTH => 10 (2**10 words)
+# Matches tinymcu_imem_bootrom's default ADDR_WIDTH => 13 (2**13 words)
+DEFAULT_MAX_WORDS = 8192
 
 
 def parse_intel_hex(path):

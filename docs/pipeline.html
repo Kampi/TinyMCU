@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #f3f6fb;
+    --paper-line: rgba(22, 50, 79, 0.06);
+    --surface: #ffffff;
+    --surface-2: #e9f0f8;
+    --surface-3: #dbe6f2;
+    --ink: #16324f;
+    --ink-dim: #5b7690;
+    --ink-faint: #8ba1b9;
+    --line: #bfd0e1;
+    --line-strong: #8ea9c4;
+    --accent: #c9720a;
+    --accent-soft: #f4dfc0;
+    --accent-ink: #7a4600;
+    --accent-2: #147d76;
+    --accent-2-soft: #cdeae7;
+    --accent-2-ink: #0c5450;
+    --shadow: 0 1px 2px rgba(22, 50, 79, 0.06), 0 8px 24px rgba(22, 50, 79, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b2138;
+      --paper-line: rgba(255, 255, 255, 0.045);
+      --surface: #123255;
+      --surface-2: #173b63;
+      --surface-3: #1c4370;
+      --ink: #eef4fb;
+      --ink-dim: #9db4cd;
+      --ink-faint: #6e88a3;
+      --line: #2f5883;
+      --line-strong: #3f6c99;
+      --accent: #ffb454;
+      --accent-soft: #4a3417;
+      --accent-ink: #ffcf94;
+      --accent-2: #5fd1c9;
+      --accent-2-soft: #0f3d3a;
+      --accent-2-ink: #8fe6df;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0b2138;
+    --paper-line: rgba(255, 255, 255, 0.045);
+    --surface: #123255;
+    --surface-2: #173b63;
+    --surface-3: #1c4370;
+    --ink: #eef4fb;
+    --ink-dim: #9db4cd;
+    --ink-faint: #6e88a3;
+    --line: #2f5883;
+    --line-strong: #3f6c99;
+    --accent: #ffb454;
+    --accent-soft: #4a3417;
+    --accent-ink: #ffcf94;
+    --accent-2: #5fd1c9;
+    --accent-2-soft: #0f3d3a;
+    --accent-2-ink: #8fe6df;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(0deg, var(--paper-line) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, var(--paper-line) 0 1px, transparent 1px 28px),
+      var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace; }
+
+  .ref {
+    font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    font-weight: 600;
+    color: var(--accent-2-ink);
+  }
+
+  .cyc {
+    font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--ink);
+    background: var(--surface-3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 56px 28px 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 52px;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 15.5px;
+  }
+
+  header p code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.92em;
+    background: var(--surface-3);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  /* ---------- Section scaffolding ---------- */
+  section { display: flex; flex-direction: column; gap: 18px; }
+
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+  h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .section-sub {
+    color: var(--ink-faint);
+    font-size: 13.5px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  section > p.lead {
+    margin: -6px 0 0;
+    color: var(--ink-dim);
+    font-size: 14.5px;
+  }
+
+  /* ---------- Datapath diagram ---------- */
+  .datapath {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: stretch;
+    gap: 0 6px;
+  }
+
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 16px 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .stage-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .stage-num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--surface);
+    background: var(--ink);
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .stage-title { font-weight: 700; font-size: 16px; }
+  .stage-name { color: var(--ink-faint); font-size: 12px; font-family: "IBM Plex Mono", monospace; }
+
+  .block {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-size: 12.8px;
+  }
+
+  .block.reg { border-left: 3px solid var(--ink-dim); }
+  .block.unit { border-left: 3px solid var(--accent-2); }
+  .block .sig {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 12.5px;
+    color: var(--ink);
+    display: block;
+  }
+  .block .desc { color: var(--ink-dim); font-size: 12px; display: block; margin-top: 2px; }
+
+  .stage-arrow {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    color: var(--line-strong);
+  }
+  .stage-arrow svg { width: 26px; height: 14px; display: block; }
+
+  .exec-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .exec-grid .block.wide { grid-column: 1 / -1; }
+
+  /* ---------- Control plane strip ---------- */
+  .ctrl {
+    background: var(--surface-2);
+    border: 1px dashed var(--line-strong);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ctrl-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .ctrl-head .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none; }
+  .ctrl-sub { margin: 0; font-size: 12.5px; color: var(--ink-dim); }
+
+  .eqs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 10px 22px;
+  }
+
+  .eq {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  .eq .name { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 12.5px; color: var(--accent-ink); }
+  .eq .rhs { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-dim); }
+  .eq .target { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--accent-2-ink); margin-top: 1px; }
+  .eq .note { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+
+  /* ---------- Timing tables ---------- */
+  .timing-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  table.timing {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 760px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+  }
+
+  table.timing th, table.timing td {
+    padding: 9px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  table.timing thead th {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-strong);
+  }
+
+  table.timing thead th:first-child, table.timing tbody th {
+    text-align: left;
+    position: sticky;
+    left: 0;
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 600;
+    z-index: 1;
+    border-right: 1px solid var(--line-strong);
+  }
+
+  table.timing tbody th .hint { display: block; font-weight: 400; color: var(--ink-faint); font-size: 10.5px; margin-top: 1px; }
+
+  table.timing tbody tr:last-child td, table.timing tbody tr:last-child th { border-bottom: none; }
+
+  .cell-tag {
+    display: inline-block;
+    min-width: 34px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    font-weight: 600;
+  }
+  .tag-idle   { color: var(--ink-faint); }
+  .tag-hold   { background: var(--accent-soft); color: var(--accent-ink); }
+  .tag-bubble { background: transparent; color: var(--accent-ink); border: 1px dashed var(--accent); }
+  .tag-ok     { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+  .tag-hi     { background: var(--accent); color: #2b1c00; }
+  .tag-lo     { color: var(--ink-faint); }
+
+  .marker-row td { border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .marker { font-size: 11px; color: var(--ink-dim); text-align: left !important; }
+  .marker b { color: var(--accent-ink); }
+
+  /* ---------- Legend ---------- */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .swatch { width: 13px; height: 13px; border-radius: 4px; flex: none; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  footer .mono { color: var(--ink-faint); }
+
+  @media (max-width: 760px) {
+    .datapath { grid-template-columns: 1fr; }
+    .stage-arrow { transform: rotate(90deg); margin: -6px 0; }
+    .exec-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Print ---------- */
+  @media print {
+    /* Some browsers' print dialogs override this with whatever
+       orientation the user has picked (often portrait by default) --
+       if the diagram comes out portrait-cramped, pick "Landscape" /
+       "Querformat" in the dialog's layout option explicitly. */
+    @page { size: A4 landscape; margin: 14mm; }
+
+    :root, :root[data-theme="dark"] {
+      --bg: #ffffff;
+      --paper-line: transparent;
+      --surface: #ffffff;
+      --surface-2: #f2f5f9;
+      --surface-3: #e7edf4;
+      --ink: #16324f;
+      --ink-dim: #4c6883;
+      --ink-faint: #7891a9;
+      --line: #c7d5e3;
+      --line-strong: #9db4cb;
+      --accent: #c9720a;
+      --accent-soft: #f4dfc0;
+      --accent-ink: #7a4600;
+      --accent-2: #147d76;
+      --accent-2-soft: #cdeae7;
+      --accent-2-ink: #0c5450;
+      --shadow: none;
+    }
+
+    body { background: #ffffff; }
+    main { max-width: none; padding: 0; gap: 28px; }
+    .stage, .timing-wrap { box-shadow: none; }
+    /* .datapath as a whole, not just each .stage -- otherwise the grid
+       row can break page mid-box while its siblings stay behind. */
+    .datapath, .ctrl { break-inside: avoid; }
+    section { break-inside: avoid; }
+    table.timing { min-width: 0; font-size: 10.5px; }
+    table.timing th, table.timing td { padding: 6px 8px; }
+    .timing-wrap { overflow: visible; border-radius: 6px; }
+    table.timing thead th:first-child, table.timing tbody th { position: static; }
+    /* auto-fit/auto-fill aren't supported by every print/PDF renderer -- fixed column count instead */
+    .eqs { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; rtl/core/tinymcu_cpu.vhd</div>
+    <h1>The 3-stage pipeline</h1>
+    <p>
+      IF &rarr; ID (buffer) &rarr; EX, built around a synchronous-read (BRAM-style) instruction
+      memory. Every register read costs one cycle of latency, so the fetch address has to be
+      buffered one stage ahead of the instruction it produces - and every stall or redirect
+      has to unwind exactly that buffering to avoid losing an instruction. Signal names below
+      match <code>tinymcu_cpu.vhd</code> directly.
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Datapath</h2>
+      <span class="section-sub">what each stage holds</span>
+    </div>
+    <p class="lead">
+      <code>pc_reg</code> always addresses the word being fetched <em>this</em> cycle. Because
+      <code>tinymcu_imem</code>'s read is registered, the matching instruction doesn't arrive until
+      the next cycle - so <code>pc_if</code> exists purely to carry the address forward one
+      cycle so it stays paired with <code>instr_if</code> when it lands.
+    </p>
+
+    <div class="datapath">
+      <div class="stage">
+        <div class="stage-tag">
+          <span class="stage-num">1</span>
+          <div><div class="stage-title">Fetch</div><div class="stage-name">IF</div></div>
+        </div>
+        <div class="block reg">
+          <span class="sig">pc_reg</span>
+          <span class="desc">address driven into tinymcu_imem.fetch_addr_i this cycle; next value = next_pc, or pc_if itself on resume_flush</span>
+        </div>
+        <div class="block unit">
+          <span class="sig">tinymcu_imem</span>
+          <span class="desc">boot-ROM, registered read &rarr; 1 cycle latency &rarr; instr_if</span>
+        </div>
+        <div class="block unit">
+          <span class="sig">latch &rarr; pc_if</span>
+          <span class="desc">pc_reg copied forward next cycle, unless stalled or held during resume_flush</span>
+        </div>
+      </div>
+
+      <div class="stage-arrow" aria-hidden="true">
+        <svg viewBox="0 0 26 14"><path d="M0 7H24M24 7L17 1M24 7L17 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="stage">
+        <div class="stage-tag">
+          <span class="stage-num">2</span>
+          <div><div class="stage-title">Buffer</div><div class="stage-name">ID</div></div>
+        </div>
+        <div class="block reg">
+          <span class="sig">pc_if</span>
+          <span class="desc">pc_reg, captured one cycle early - re-pairs with instr_if</span>
+        </div>
+        <div class="block reg">
+          <span class="sig">instr_if</span>
+          <span class="desc">tinymcu_imem's output, valid this cycle</span>
+        </div>
+        <div class="block unit">
+          <span class="sig">latch &rarr; pc_ex / instr_ex</span>
+          <span class="desc">next cycle, unless stalled or squashed below</span>
+        </div>
+      </div>
+
+      <div class="stage-arrow" aria-hidden="true">
+        <svg viewBox="0 0 26 14"><path d="M0 7H24M24 7L17 1M24 7L17 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <div class="stage">
+        <div class="stage-tag">
+          <span class="stage-num">3</span>
+          <div><div class="stage-title">Execute</div><div class="stage-name">EX</div></div>
+        </div>
+        <div class="block reg">
+          <span class="sig">instr_ex / pc_ex</span>
+          <span class="desc">ID/EX pipeline register</span>
+        </div>
+        <div class="exec-grid">
+          <div class="block unit"><span class="sig">tinymcu_cpu_control</span><span class="desc">decode &rarr; opcode, rd/rs1/rs2, immediates, alu_op</span></div>
+          <div class="block unit"><span class="sig">regfile read</span><span class="desc">rs1_val, rs2_val</span></div>
+          <div class="block unit"><span class="sig">ALU</span><span class="desc">alu_op_a/b &rarr; alu_result</span></div>
+          <div class="block unit"><span class="sig">mult / div</span><span class="desc">multi-cycle &rarr; busy/valid</span></div>
+          <div class="block unit wide"><span class="sig">branch / jump / trap resolve</span><span class="desc">branch_taken, redirect_target</span></div>
+          <div class="block unit wide"><span class="sig">data bus</span><span class="desc">cpu_req/cpu_rsp (registered SRAM read) &rarr; load_data</span></div>
+          <div class="block reg wide"><span class="sig">rd_data mux &rarr; regfile write</span><span class="desc">gated by reg_we and not stall</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ctrl">
+      <div class="ctrl-head"><span class="dot"></span>Hazard &amp; redirect logic</div>
+      <p class="ctrl-sub">Each card names the exact register from the datapath above that it drives - that's the box it "belongs to".</p>
+      <div class="eqs">
+        <div class="eq">
+          <span class="name">stall</span>
+          <span class="rhs">(cpu_req.stb &amp; !cpu_rsp.ack) | mult_busy | div_busy</span>
+          <span class="target">&rarr; pc_reg, pc_if, pc_ex, instr_ex</span>
+          <span class="note">freezes all three stages at once, verbatim</span>
+        </div>
+        <div class="eq">
+          <span class="name">stall_d1</span>
+          <span class="rhs">reg(stall)</span>
+          <span class="target">&rarr; resume_flush only</span>
+          <span class="note">internal timing helper, drives no pipeline register itself</span>
+        </div>
+        <div class="eq">
+          <span class="name">resume_flush</span>
+          <span class="rhs">stall_d1 &amp; !stall</span>
+          <span class="target">&rarr; pc_reg (rewind) + instr_ex (&rarr; NOP)</span>
+          <span class="note">fires the one cycle a stall just cleared</span>
+        </div>
+        <div class="eq">
+          <span class="name">redirect</span>
+          <span class="rhs">is_trap | is_mret | is_jal | is_jalr | (is_branch &amp; branch_taken)</span>
+          <span class="target">&rarr; next_pc &rarr; pc_reg</span>
+          <span class="note">decoded from instr_ex, resolved in stage 3 (EX)</span>
+        </div>
+        <div class="eq">
+          <span class="name">redirect_d1</span>
+          <span class="rhs">reg(redirect | resume_flush)</span>
+          <span class="target">&rarr; instr_ex (&rarr; NOP), one cycle later</span>
+          <span class="note">redirect and resume_flush share this one squash register</span>
+        </div>
+        <div class="eq">
+          <span class="name">instr_ex &larr; NOP</span>
+          <span class="rhs">when redirect | redirect_d1 | resume_flush</span>
+          <span class="target">&rarr; instr_ex (the ID/EX latch itself)</span>
+          <span class="note">two consecutive bubbles, either way in</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Timing - taken branch</h2>
+      <span class="section-sub">redirect resolves in EX, two fetches already in flight get squashed</span>
+    </div>
+    <p class="lead">
+      Branch <span class="ref">B</span> resolves in EX at <span class="cyc">c3</span>. By then <span class="ref">pc_reg</span>
+      has already moved two steps past it - <span class="ref">C</span> and <span class="ref">D</span>
+      were fetched speculatively down the not-taken path. <span class="ref">redirect</span> retargets
+      <span class="ref">pc_reg</span> immediately, but the two wrong-path instructions already sitting
+      in the pipe still have to drain as NOPs before target <span class="ref">X</span> reaches EX at <span class="cyc">c6</span>.
+    </p>
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead>
+          <tr>
+            <th>cycle</th><th>c0</th><th>c1</th><th>c2</th><th>c3</th><th>c4</th><th>c5</th><th>c6</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>pc_reg <span class="hint">fetching</span></th>
+            <td>A</td><td>B</td><td>C</td><td>D</td>
+            <td><span class="cell-tag tag-ok">X</span></td><td>X+4</td><td>X+8</td>
+          </tr>
+          <tr>
+            <th>pc_if / instr_if</th>
+            <td class="tag-lo">-</td><td>A</td><td>B</td><td>C</td>
+            <td>D</td><td><span class="cell-tag tag-ok">X</span></td><td>X+4</td>
+          </tr>
+          <tr>
+            <th>pc_ex / instr_ex <span class="hint">executing</span></th>
+            <td class="tag-lo">-</td><td class="tag-lo">-</td><td>A</td>
+            <td><span class="cell-tag tag-hi">B</span></td>
+            <td><span class="cell-tag tag-bubble">NOP</span></td>
+            <td><span class="cell-tag tag-bubble">NOP</span></td>
+            <td><span class="cell-tag tag-ok">X</span></td>
+          </tr>
+          <tr>
+            <th>redirect</th>
+            <td>0</td><td>0</td><td>0</td><td><span class="cell-tag tag-hi">1</span></td><td>0</td><td>0</td><td>0</td>
+          </tr>
+          <tr>
+            <th>redirect_d1</th>
+            <td>0</td><td>0</td><td>0</td><td>0</td><td><span class="cell-tag tag-hold">1</span></td><td>0</td><td>0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Timing - stall then recover</h2>
+      <span class="section-sub">e.g. MUL/DIV busy, or a load/store waiting on cpu_rsp.ack</span>
+    </div>
+    <p class="lead">
+      <span class="ref">M</span> stalls EX for three cycles (<span class="cyc">c0</span>-<span class="cyc">c2</span>); the whole front end freezes
+      with it, so <span class="ref">N</span> - the instruction right behind it - sits
+      un-advanced in <span class="ref">pc_if</span> the entire time. The moment <span class="ref">stall</span>
+      drops, <span class="ref">resume_flush</span> fires for exactly one cycle: it rewinds
+      <span class="ref">pc_reg</span> back to <span class="ref">pc_if</span> instead of letting it
+      advance, re-issuing the fetch for <span class="ref">N</span> that would otherwise have been
+      silently skipped. Two bubbles later, <span class="ref">N</span> lands correctly in EX at <span class="cyc">c6</span>.
+    </p>
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead>
+          <tr>
+            <th>cycle</th><th>c0</th><th>c1</th><th>c2</th><th>c3</th><th>c4</th><th>c5</th><th>c6</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>pc_ex / instr_ex</th>
+            <td><span class="cell-tag tag-hold">M</span></td>
+            <td><span class="cell-tag tag-hold">M</span></td>
+            <td><span class="cell-tag tag-hold">M</span></td>
+            <td><span class="cell-tag tag-hold">M</span></td>
+            <td><span class="cell-tag tag-bubble">NOP</span></td>
+            <td><span class="cell-tag tag-bubble">NOP</span></td>
+            <td><span class="cell-tag tag-ok">N</span></td>
+          </tr>
+          <tr>
+            <th>stall</th>
+            <td><span class="cell-tag tag-hi">1</span></td>
+            <td><span class="cell-tag tag-hi">1</span></td>
+            <td><span class="cell-tag tag-hi">1</span></td>
+            <td>0</td><td>0</td><td>0</td><td>0</td>
+          </tr>
+          <tr>
+            <th>stall_d1</th>
+            <td>0</td>
+            <td><span class="cell-tag tag-hold">1</span></td>
+            <td><span class="cell-tag tag-hold">1</span></td>
+            <td><span class="cell-tag tag-hold">1</span></td>
+            <td>0</td><td>0</td><td>0</td>
+          </tr>
+          <tr>
+            <th>resume_flush</th>
+            <td>0</td><td>0</td><td>0</td>
+            <td><span class="cell-tag tag-hi">1</span></td>
+            <td>0</td><td>0</td><td>0</td>
+          </tr>
+          <tr>
+            <th>redirect_d1</th>
+            <td>0</td><td>0</td><td>0</td><td>0</td>
+            <td><span class="cell-tag tag-hold">1</span></td>
+            <td>0</td><td>0</td>
+          </tr>
+          <tr>
+            <th>pc_reg <span class="hint">fetching</span></th>
+            <td>O</td><td>O</td><td>O</td><td>O</td>
+            <td><span class="cell-tag tag-ok">N</span> <span class="hint" style="display:inline">rewind</span></td>
+            <td>N+4</td><td>N+8</td>
+          </tr>
+          <tr>
+            <th>pc_if</th>
+            <td>N</td><td>N</td><td>N</td><td>N</td><td>N</td><td>N</td><td>N+4</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="legend">
+    <span><span class="swatch" style="background:var(--accent);"></span>hazard asserted this cycle</span>
+    <span><span class="swatch" style="background:var(--accent-soft); border:1px solid var(--accent);"></span>register held / frozen</span>
+    <span><span class="swatch" style="background:transparent; border:1px dashed var(--accent);"></span>squashed to NOP</span>
+    <span><span class="swatch" style="background:var(--accent-2-soft); border:1px solid var(--accent-2);"></span>correct instruction lands</span>
+  </div>
+
+  <footer>
+    <span class="mono">rtl/core/tinymcu_cpu.vhd</span>
+  </footer>
+
+</main>
+</body>
+</html>

@@ -88,8 +88,7 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal instr_if     : word_t;
 
     -- IF/ID buffer: tinymcu_imem's boot-ROM read is registered (BRAM-style, one cycle of latency, so
-    -- instr_if lags the pc_reg value that produced it by one cycle. c_if captures that same pc_reg 
-    -- value one cycle earlier, so it stays paired with instr_if once instr_if actually arrives.
+    -- instr_if lags the pc_reg value that produced it by one cycle
     signal pc_if        : word_t;
 
     -- ID/EX pipeline register
@@ -222,6 +221,7 @@ begin
             data_rsp_o   => imem_rsp
         );
 
+    -- Continue with the pipeline flush on a rising edge of "stall_dl"
     resume_flush <= '1' when (stall_d1 = '1' and stall = '0') else '0';
 
     ----------------------------------------------------------------------
@@ -284,6 +284,7 @@ begin
         end if;
     end process;
 
+    -- Increase the program counter or use the redirect target when a redirection occurs
     next_pc <= redirect_target when redirect = '1' else std_ulogic_vector(unsigned(pc_reg) + 4);
 
     -- Use this process to generate a one cycle pulse at the beginning of each new instruction behind the pipeline
@@ -367,6 +368,7 @@ begin
             funct3_i    => funct3
         );
 
+    -- Start the multiplication (one clock cycle pulse) as soon as a dispatched event happens
     mult_start <= dispatched and is_mult;
 
     ----------------------------------------------------------------------
@@ -386,6 +388,7 @@ begin
             funct3_i    => funct3
         );
 
+    -- Start the division (one clock cycle pulse) as soon as a dispatched event happens
     div_start <= dispatched and is_div;
 
     ----------------------------------------------------------------------
@@ -453,7 +456,7 @@ begin
                     when others => ram_ben <= "1000";
                 end case;
 
-                -- The byte to write is determined by 'ram_ben'
+                -- The byte to write is determined by "ram_ben"
                 ram_in <= rs2_val(7 downto 0) & rs2_val(7 downto 0) &
                           rs2_val(7 downto 0) & rs2_val(7 downto 0);
 
@@ -469,6 +472,7 @@ begin
             when others =>  -- SW
                 ram_ben <= "1111";
                 ram_in  <= rs2_val;
+
         end case;
     end process;
 
@@ -489,6 +493,7 @@ begin
             when CSR_RSI => csr_wdata <= csr_rdata or imm5;
             when CSR_RCI => csr_wdata <= csr_rdata and not imm5;
             when others  => csr_wdata <= (others => '0');
+
         end case;
     end process;
 
@@ -544,6 +549,7 @@ begin
             when "110"  => branch_taken <= '1' when ult      else '0'; -- BLTU
             when "111"  => branch_taken <= '1' when not ult  else '0'; -- BGEU
             when others => branch_taken <= '0';
+
         end case;
     end process;
 
@@ -578,6 +584,8 @@ begin
             redirect_target <= std_ulogic_vector(unsigned(pc_ex) + unsigned(imm_j));
         elsif is_jalr = '1' then
             redirect_target <= std_ulogic_vector(unsigned(rs1_val) + unsigned(imm_i));
+
+            -- JALR requires to set bit 0 to 0, regardless of the result
             redirect_target(0) <= '0';
         else
             redirect_target <= std_ulogic_vector(unsigned(pc_ex) + unsigned(imm_b));

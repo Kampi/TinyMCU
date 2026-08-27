@@ -52,7 +52,6 @@ architecture tinymcu_cpu_div_rtl of tinymcu_cpu_div is
     signal start            : std_ulogic;
     signal neg_result       : std_ulogic;
     signal neg_remainder    : std_ulogic;
-    signal signed_overflow  : std_ulogic;
 
     signal dividend         : word_t;
     signal divisor          : word_t; 
@@ -129,7 +128,7 @@ begin
 
                             current_state <= Idle;
                         -- Signed overflow ((-2^31) / (-1))
-                        elsif signed_overflow = '1' then
+                        elsif op_a_i = x"80000000" and op_b_i = x"FFFFFFFF" and (funct3_i = "100" or funct3_i = "110") then
                             quotient <= op_a_i;
                             rem_work <= (others => '0');
                             neg_result <= '0';
@@ -177,8 +176,6 @@ begin
 
     quotient_o <= quotient_corr;
     remainder_o <= remainder_corr;
-
-    signed_overflow <= '1' when (op_a_i = x"80000000" and op_b_i = x"FFFFFFFF" and (funct3_i = "100" or funct3_i = "110")) else '0';
 
     busy_o <= '1' when (current_state = Calc) else
               '1' when (current_state = Check) else

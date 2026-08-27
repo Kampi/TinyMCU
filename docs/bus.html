@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU Bus Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #f3f6fb;
+    --paper-line: rgba(22, 50, 79, 0.06);
+    --surface: #ffffff;
+    --surface-2: #e9f0f8;
+    --surface-3: #dbe6f2;
+    --ink: #16324f;
+    --ink-dim: #5b7690;
+    --ink-faint: #8ba1b9;
+    --line: #bfd0e1;
+    --line-strong: #8ea9c4;
+    --accent: #c9720a;
+    --accent-soft: #f4dfc0;
+    --accent-ink: #7a4600;
+    --accent-2: #147d76;
+    --accent-2-soft: #cdeae7;
+    --accent-2-ink: #0c5450;
+    --accent-3: #5b5bd6;
+    --accent-3-soft: #e1e0fa;
+    --accent-3-ink: #3a3ab0;
+    --shadow: 0 1px 2px rgba(22, 50, 79, 0.06), 0 8px 24px rgba(22, 50, 79, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b2138;
+      --paper-line: rgba(255, 255, 255, 0.045);
+      --surface: #123255;
+      --surface-2: #173b63;
+      --surface-3: #1c4370;
+      --ink: #eef4fb;
+      --ink-dim: #9db4cd;
+      --ink-faint: #6e88a3;
+      --line: #2f5883;
+      --line-strong: #3f6c99;
+      --accent: #ffb454;
+      --accent-soft: #4a3417;
+      --accent-ink: #ffcf94;
+      --accent-2: #5fd1c9;
+      --accent-2-soft: #0f3d3a;
+      --accent-2-ink: #8fe6df;
+      --accent-3: #9d9dff;
+      --accent-3-soft: #2a2a5c;
+      --accent-3-ink: #c1c1ff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0b2138;
+    --paper-line: rgba(255, 255, 255, 0.045);
+    --surface: #123255;
+    --surface-2: #173b63;
+    --surface-3: #1c4370;
+    --ink: #eef4fb;
+    --ink-dim: #9db4cd;
+    --ink-faint: #6e88a3;
+    --line: #2f5883;
+    --line-strong: #3f6c99;
+    --accent: #ffb454;
+    --accent-soft: #4a3417;
+    --accent-ink: #ffcf94;
+    --accent-2: #5fd1c9;
+    --accent-2-soft: #0f3d3a;
+    --accent-2-ink: #8fe6df;
+    --accent-3: #9d9dff;
+    --accent-3-soft: #2a2a5c;
+    --accent-3-ink: #c1c1ff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(0deg, var(--paper-line) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, var(--paper-line) 0 1px, transparent 1px 28px),
+      var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace; }
+  .ref {
+    font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    font-weight: 600;
+    color: var(--accent-2-ink);
+  }
+
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 56px 28px 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 52px;
+  }
+
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  header p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
+  header p code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.92em;
+    background: var(--surface-3);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -0.005em; }
+  .section-sub {
+    color: var(--ink-faint);
+    font-size: 13.5px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  section > p.lead { margin: -6px 0 0; color: var(--ink-dim); font-size: 14.5px; }
+
+  /* ---------- Signal field tables ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  table.map { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 13px; }
+  table.map th, table.map td {
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.map thead th {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: "IBM Plex Mono", monospace;
+  }
+  table.map tbody tr:last-child td { border-bottom: none; }
+  table.map td.field {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  table.map td.desc { color: var(--ink-dim); }
+
+  .signal-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 760px) { .signal-pair { grid-template-columns: 1fr; } }
+  .signal-pair .table-wrap table { min-width: 0; }
+  .signal-title {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink-faint);
+    margin: 0 0 6px;
+  }
+
+  /* ---------- Timing tables (handshake scenarios) ---------- */
+  .timing-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  table.timing {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 480px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+  }
+  table.timing th, table.timing td {
+    padding: 9px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  table.timing thead th {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  table.timing thead th:first-child, table.timing tbody th {
+    text-align: left;
+    color: var(--ink);
+    font-weight: 600;
+    background: var(--surface-2);
+    border-right: 1px solid var(--line-strong);
+  }
+  table.timing tbody tr:last-child td, table.timing tbody tr:last-child th { border-bottom: none; }
+  .cell-tag {
+    display: inline-block;
+    min-width: 30px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    font-weight: 600;
+  }
+  .tag-hi   { background: var(--accent); color: #2b1c00; }
+  .tag-hold { background: var(--accent-soft); color: var(--accent-ink); }
+  .tag-ok   { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+  .tag-lo   { color: var(--ink-faint); }
+
+  .scenario-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .scenario-title { font-weight: 700; font-size: 15px; }
+  .scenario-cost {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  /* ---------- Topology (region cards) ---------- */
+  .topo {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .topo-row {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 12px 14px;
+    flex: 1 1 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .node.master { border-left: 3px solid var(--accent); }
+  .node.decoder { border-left: 3px solid var(--ink-dim); background: var(--surface-2); }
+  .node.leaf { border-left: 3px solid var(--accent-2); }
+  .node.leaf.periph { border-left: 3px solid var(--accent-3); }
+  .node .n-name { font-weight: 700; font-size: 14px; }
+  .node .n-sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+  .node .n-desc { font-size: 12.5px; color: var(--ink-dim); }
+
+  .topo-arrow {
+    text-align: center;
+    color: var(--line-strong);
+    font-size: 13px;
+    margin: -2px 0;
+  }
+
+  .indent { margin-left: 28px; }
+
+  /* ---------- Notes ---------- */
+  .note {
+    background: var(--surface-2);
+    border: 1px dashed var(--line-strong);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .note-head {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+  .note p { margin: 0; color: var(--ink-dim); font-size: 13.5px; }
+  .notes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .notes-grid { grid-template-columns: 1fr; } }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 14mm; }
+    :root, :root[data-theme="dark"] {
+      --bg: #ffffff; --paper-line: transparent; --surface: #ffffff; --surface-2: #f2f5f9;
+      --ink: #16324f; --ink-dim: #4c6883; --ink-faint: #7891a9; --line: #c7d5e3;
+      --line-strong: #9db4cb; --accent-ink: #7a4600; --accent-2-ink: #0c5450;
+      --accent-3-ink: #3a3ab0; --shadow: none;
+    }
+    body { background: #ffffff; }
+    .table-wrap, .timing-wrap, .node { box-shadow: none; }
+    section, .node, .note { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; rtl/tinymcu_pkg.vhd</div>
+    <h1>Bus Protocol</h1>
+    <p>
+      One request/response record pair (<code>bus_req_t</code> / <code>bus_rsp_t</code>),
+      one outstanding transaction at a time, no pipelining. Every target either acks the
+      same cycle (peripherals) or one cycle later (ROM/RAM) - there is no other
+      latency in the system. See <code>memory.html</code> for exact address ranges and
+      <code>pipeline.html</code> for how a wait state turns into pipeline bubbles.
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Signals</h2>
+      <span class="section-sub">rtl/tinymcu_pkg.vhd</span>
+    </div>
+    <p class="lead">
+      One <span class="ref">bus_req_t</span> travels from master to target, one
+      <span class="ref">bus_rsp_t</span> travels back - every device on the bus
+      (<span class="ref">tinymcu_sram</span>, <span class="ref">tinymcu_imem</span>,
+      <span class="ref">tinymcu_periph_*</span>) speaks the exact same pair of records.
+    </p>
+
+    <div class="signal-pair">
+      <div>
+        <p class="signal-title">bus_req_t - master &rarr; target</p>
+        <div class="table-wrap">
+          <table class="map">
+            <thead><tr><th>Field</th><th>Width</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="field">addr</td><td class="desc">32</td><td class="desc">byte address</td></tr>
+              <tr><td class="field">data</td><td class="desc">32</td><td class="desc">write data</td></tr>
+              <tr><td class="field">ben</td><td class="desc">4</td><td class="desc">byte enable, one bit per byte lane</td></tr>
+              <tr><td class="field">we</td><td class="desc">1</td><td class="desc">1 = write, 0 = read</td></tr>
+              <tr><td class="field">stb</td><td class="desc">1</td><td class="desc">1 = valid access this cycle</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <p class="signal-title">bus_rsp_t - target &rarr; master</p>
+        <div class="table-wrap">
+          <table class="map">
+            <thead><tr><th>Field</th><th>Width</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="field">data</td><td class="desc">32</td><td class="desc">read data, valid when ack = 1</td></tr>
+              <tr><td class="field">ack</td><td class="desc">1</td><td class="desc">1 = access completed this cycle</td></tr>
+              <tr><td class="field">err</td><td class="desc">1</td><td class="desc">1 = generic error (see note below)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Handshake</h2>
+      <span class="section-sub">stb / ack</span>
+    </div>
+    <p class="lead">
+      The master raises <span class="ref">stb</span> and holds it - along with
+      <span class="ref">addr</span>/<span class="ref">we</span>/<span class="ref">ben</span> -
+      until it sees <span class="ref">ack</span>. Whether that happens the same cycle or one
+      cycle later depends entirely on which target answered.
+    </p>
+
+    <div class="scenario-head">
+      <span class="scenario-title">GPIO / Timer / UART</span>
+      <span class="scenario-cost">combinational ack - zero wait states</span>
+    </div>
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead><tr><th>cycle</th><th>c0</th><th>c1</th></tr></thead>
+        <tbody>
+          <tr><th>req.stb</th><td><span class="cell-tag tag-hi">1</span></td><td>0</td></tr>
+          <tr><th>rsp.ack</th><td><span class="cell-tag tag-ok">1</span></td><td>0</td></tr>
+          <tr><th>stall</th><td>0</td><td>0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead">
+      <span class="ref">*_rsp_o.ack &lt;= *_req_i.stb;</span> as a plain concurrent
+      assignment in all three peripherals - no clocked process at all. The CPU's
+      <span class="ref">stall</span> (<code>cpu_req.stb and not cpu_rsp.ack</code>) never
+      even sees a gap, so a peripheral access costs nothing beyond the instruction's own EX cycle.
+    </p>
+
+    <div class="scenario-head">
+      <span class="scenario-title">ROM / RAM</span>
+      <span class="scenario-cost">registered ack - one wait state, then two pipeline bubbles</span>
+    </div>
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead><tr><th>cycle</th><th>c0</th><th>c1</th><th>c2</th><th>c3</th></tr></thead>
+        <tbody>
+          <tr><th>req.stb</th><td><span class="cell-tag tag-hi">1</span></td><td><span class="cell-tag tag-hold">1</span></td><td>0</td><td>0</td></tr>
+          <tr><th>rsp.ack</th><td>0</td><td><span class="cell-tag tag-ok">1</span></td><td>0</td><td>0</td></tr>
+          <tr><th>stall</th><td><span class="cell-tag tag-hi">1</span></td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><th>resume_flush</th><td>0</td><td><span class="cell-tag tag-hi">1</span></td><td>0</td><td>0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead">
+      Same registered-ack pattern in <span class="ref">tinymcu_sram.vhd</span> and
+      <span class="ref">tinymcu_imem.vhd</span>'s data port: <span class="ref">rsp_o.ack &lt;= req_i.stb;</span>
+      but inside a clocked process. One stall cycle waiting for <span class="ref">ack</span>,
+      then <span class="ref">resume_flush</span> takes over - the exact same
+      redirect-style two-bubble recovery a MUL/DIV stall uses (see pipeline.html's
+      "Timing - stall then recover").
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Topology</h2>
+      <span class="section-sub">two decode levels, both plain combinational muxes</span>
+    </div>
+    <p class="lead">
+      There are two separate memory-access paths out of <span class="ref">tinymcu_cpu.vhd</span>,
+      and only one of them is this bus.
+    </p>
+
+    <div class="topo">
+      <div class="topo-row">
+        <div class="node master">
+          <span class="n-name">Fetch port</span>
+          <span class="n-sub">pc_reg &rarr; tinymcu_imem.fetch_addr_i</span>
+          <span class="n-desc">Not on this bus at all - no stb/ack, always-on synchronous read, one cycle of latency. See pipeline.html's IF stage.</span>
+        </div>
+        <div class="node master">
+          <span class="n-name">Data bus (cpu_req / cpu_rsp)</span>
+          <span class="n-sub">LOAD / STORE only</span>
+          <span class="n-desc">CSR access is a separate direct connection to tinymcu_cpu_csrfile - it never touches this bus or stb/stall.</span>
+        </div>
+      </div>
+
+      <div class="topo-arrow">&#9660;</div>
+
+      <div class="topo-row">
+        <div class="node decoder" style="flex-basis: 100%;">
+          <span class="n-name">tinymcu_addr_decoder</span>
+          <span class="n-sub">addr[31:24]</span>
+          <span class="n-desc">Combinational; masks each target's response before OR-ing, so an unselected target can't corrupt the result.</span>
+        </div>
+      </div>
+
+      <div class="topo-arrow">&#9660;</div>
+
+      <div class="topo-row">
+        <div class="node leaf">
+          <span class="n-name">tinymcu_imem</span>
+          <span class="n-sub">0x00 - registered</span>
+        </div>
+        <div class="node leaf">
+          <span class="n-name">tinymcu_sram</span>
+          <span class="n-sub">0x02 - registered</span>
+        </div>
+        <div class="node decoder">
+          <span class="n-name">tinymcu_periph</span>
+          <span class="n-sub">0x04 - addr[31:8]</span>
+        </div>
+      </div>
+
+      <div class="topo-row indent" style="flex-basis: 66%;">
+        <div class="node leaf periph">
+          <span class="n-name">GPIO</span>
+          <span class="n-sub">combinational</span>
+        </div>
+        <div class="node leaf periph">
+          <span class="n-name">Timer</span>
+          <span class="n-sub">combinational</span>
+        </div>
+        <div class="node leaf periph">
+          <span class="n-name">UART</span>
+          <span class="n-sub">combinational</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Notes</h2>
+    </div>
+    <div class="notes-grid">
+      <div class="note">
+        <div class="note-head">err is computed, not consulted</div>
+        <p>
+          Both decode levels drive <span class="ref">err &lt;= '1'</span> when nothing
+          matched, but <span class="ref">tinymcu_cpu.vhd</span> never reads
+          <span class="ref">cpu_rsp.err</span> anywhere. An unmapped access just silently
+          reads back <span class="ref">0</span> with an immediate ack - no trap, no stall.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">ben gates reads too</div>
+        <p>
+          <span class="ref">tinymcu_sram.vhd</span> is four 8-bit lanes, each with its own
+          <span class="ref">en_i</span> driven straight from <span class="ref">ben</span>.
+          A byte/half-word load only strobes the lane(s) it actually needs - the
+          disabled lanes hold stale data, which is fine since nothing reads them that cycle.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">No outstanding transactions</div>
+        <p>
+          The master only ever has one request in flight: <span class="ref">stall</span>
+          freezes the whole pipeline (see pipeline.html) until <span class="ref">ack</span>
+          arrives, so a second <span class="ref">stb</span> can never overlap the first.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">stb naturally self-clears</div>
+        <p>
+          <span class="ref">cpu_req.stb</span> is decoded straight from
+          <span class="ref">instr_ex</span>'s opcode. Once <span class="ref">ack</span> lands,
+          the following bubble cycle (see <span class="ref">resume_flush</span>) turns
+          <span class="ref">instr_ex</span> into a NOP, which drops <span class="ref">stb</span>
+          on its own - no explicit one-shot logic needed.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">rtl/tinymcu_pkg.vhd &middot; rtl/core/tinymcu_addr_decoder.vhd &middot; rtl/core/tinymcu_sram.vhd &middot; rtl/core/tinymcu_imem.vhd &middot; rtl/peripherals/tinymcu_periph.vhd</span>
+  </footer>
+
+</main>
+</body>
+</html>

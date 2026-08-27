@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU Memory Layout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #f3f6fb;
+    --paper-line: rgba(22, 50, 79, 0.06);
+    --surface: #ffffff;
+    --surface-2: #e9f0f8;
+    --surface-3: #dbe6f2;
+    --ink: #16324f;
+    --ink-dim: #5b7690;
+    --ink-faint: #8ba1b9;
+    --line: #bfd0e1;
+    --line-strong: #8ea9c4;
+    --accent: #c9720a;
+    --accent-soft: #f4dfc0;
+    --accent-ink: #7a4600;
+    --accent-2: #147d76;
+    --accent-2-soft: #cdeae7;
+    --accent-2-ink: #0c5450;
+    --accent-3: #5b5bd6;
+    --accent-3-soft: #e1e0fa;
+    --accent-3-ink: #3a3ab0;
+    --shadow: 0 1px 2px rgba(22, 50, 79, 0.06), 0 8px 24px rgba(22, 50, 79, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b2138;
+      --paper-line: rgba(255, 255, 255, 0.045);
+      --surface: #123255;
+      --surface-2: #173b63;
+      --surface-3: #1c4370;
+      --ink: #eef4fb;
+      --ink-dim: #9db4cd;
+      --ink-faint: #6e88a3;
+      --line: #2f5883;
+      --line-strong: #3f6c99;
+      --accent: #ffb454;
+      --accent-soft: #4a3417;
+      --accent-ink: #ffcf94;
+      --accent-2: #5fd1c9;
+      --accent-2-soft: #0f3d3a;
+      --accent-2-ink: #8fe6df;
+      --accent-3: #9d9dff;
+      --accent-3-soft: #2a2a5c;
+      --accent-3-ink: #c1c1ff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0b2138;
+    --paper-line: rgba(255, 255, 255, 0.045);
+    --surface: #123255;
+    --surface-2: #173b63;
+    --surface-3: #1c4370;
+    --ink: #eef4fb;
+    --ink-dim: #9db4cd;
+    --ink-faint: #6e88a3;
+    --line: #2f5883;
+    --line-strong: #3f6c99;
+    --accent: #ffb454;
+    --accent-soft: #4a3417;
+    --accent-ink: #ffcf94;
+    --accent-2: #5fd1c9;
+    --accent-2-soft: #0f3d3a;
+    --accent-2-ink: #8fe6df;
+    --accent-3: #9d9dff;
+    --accent-3-soft: #2a2a5c;
+    --accent-3-ink: #c1c1ff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(0deg, var(--paper-line) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, var(--paper-line) 0 1px, transparent 1px 28px),
+      var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace; }
+
+  .ref {
+    font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    font-weight: 600;
+    color: var(--accent-2-ink);
+  }
+
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 56px 28px 88px;
+    display: flex;
+    flex-direction: column;
+    gap: 52px;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 15.5px;
+  }
+
+  header p code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.92em;
+    background: var(--surface-3);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  /* ---------- Section scaffolding ---------- */
+  section { display: flex; flex-direction: column; gap: 18px; }
+
+  .section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+  h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .section-sub {
+    color: var(--ink-faint);
+    font-size: 13.5px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  section > p.lead {
+    margin: -6px 0 0;
+    color: var(--ink-dim);
+    font-size: 14.5px;
+  }
+
+  /* ---------- 256-way byte-decode strip ---------- */
+  .strip-wrap {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 18px 18px 14px;
+  }
+
+  .strip-caption {
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    margin: 0 0 12px;
+  }
+
+  #strip {
+    display: flex;
+    height: 46px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+
+  .seg {
+    flex: 1 1 0;
+    height: 100%;
+    background: var(--surface-3);
+    border-right: 1px solid var(--bg);
+  }
+  .seg:last-child { border-right: none; }
+  .seg.rom  { background: var(--accent-2); flex-grow: 6; }
+  .seg.ram  { background: var(--accent); flex-grow: 6; }
+  .seg.periph { background: var(--accent-3); flex-grow: 6; }
+
+  .strip-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+
+  .strip-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+  }
+  .strip-legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .strip-legend .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+  /* ---------- Region cards ---------- */
+  .region {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 16px 18px 18px;
+  }
+
+  .region-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+
+  .region-range {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .region-range.rom { color: var(--accent-2-ink); }
+  .region-range.ram { color: var(--accent-ink); }
+  .region-range.periph { color: var(--accent-3-ink); }
+
+  .region-size {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  .region-note {
+    color: var(--ink-dim);
+    font-size: 13.5px;
+    margin: 6px 0 14px;
+  }
+
+  /* ---------- Tables ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+
+  table.map {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 560px;
+    font-size: 13px;
+  }
+
+  table.map th, table.map td {
+    padding: 9px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  table.map thead th {
+    color: var(--ink-faint);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-strong);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  table.map tbody tr:last-child td { border-bottom: none; }
+
+  table.map td.addr, table.map td.reg {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  table.map td.desc { color: var(--ink-dim); }
+  table.map td.desc code {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--accent-2-ink);
+    font-weight: 600;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 5px;
+    letter-spacing: 0.02em;
+  }
+  .tag.real { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+  .tag.reserved { background: var(--surface-3); color: var(--ink-faint); border: 1px dashed var(--line-strong); }
+
+  /* ---------- Peripheral register grid ---------- */
+  .periph-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .periph-grid { grid-template-columns: 1fr; }
+  }
+
+  .periph-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .periph-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .periph-title .name { font-weight: 700; font-size: 15px; }
+  .periph-title .base {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+
+  .reg-row {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+  }
+  .reg-row:first-of-type { border-top: none; }
+  .reg-off {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink-faint);
+    flex: none;
+    width: 42px;
+  }
+  .reg-name {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    flex: none;
+    width: 78px;
+  }
+  .reg-desc { color: var(--ink-dim); }
+
+  /* ---------- Callout / note ---------- */
+  .note {
+    background: var(--surface-2);
+    border: 1px dashed var(--line-strong);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .note-head {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+  }
+  .note p { margin: 0; color: var(--ink-dim); font-size: 13.5px; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+  }
+
+  @media print {
+    @page { size: A4 landscape; margin: 14mm; }
+    :root, :root[data-theme="dark"] {
+      --bg: #ffffff;
+      --paper-line: transparent;
+      --surface: #ffffff;
+      --surface-2: #f2f5f9;
+      --ink: #16324f;
+      --ink-dim: #4c6883;
+      --ink-faint: #7891a9;
+      --line: #c7d5e3;
+      --line-strong: #9db4cb;
+      --accent-ink: #7a4600;
+      --accent-2-ink: #0c5450;
+      --accent-3-ink: #3a3ab0;
+      --shadow: none;
+    }
+    body { background: #ffffff; }
+    .region, .table-wrap, .periph-card, .strip-wrap { box-shadow: none; }
+    section, .region, .periph-card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; rtl/tinymcu_pkg.vhd</div>
+    <h1>Memory Layout</h1>
+    <p>
+      Every bus target is selected by a single top-byte compare (<code>addr[31:24]</code>),
+      so the address space is really just 256 possible 16&nbsp;MB windows - only three
+      are wired up. Nothing below that top byte is range-checked against the region's real
+      size, so a region smaller than its window mirrors throughout the rest of it (see the
+      SRAM note below).
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Address Map</h2>
+      <span class="section-sub">addr[31:24], tinymcu_addr_decoder.vhd</span>
+    </div>
+    <p class="lead">
+      256 possible top-byte values, 3 actually decoded. Every unlabeled segment reads back
+      as <span class="ref">0</span> and acks immediately - there is no bus fault, no stall.
+    </p>
+
+    <div class="strip-wrap">
+      <p class="strip-caption">One segment per top-byte value (0x00-0xFF), left to right</p>
+      <div id="strip"></div>
+      <div class="strip-labels"><span>0x00</span><span>0x40</span><span>0x80</span><span>0xC0</span><span>0xFF</span></div>
+      <div class="strip-legend">
+        <span><span class="swatch" style="background:var(--accent-2);"></span>0x00 - ROM / Flash</span>
+        <span><span class="swatch" style="background:var(--accent);"></span>0x02 - RAM</span>
+        <span><span class="swatch" style="background:var(--accent-3);"></span>0x04 - Peripherals</span>
+        <span><span class="swatch" style="background:var(--surface-3); border:1px solid var(--line);"></span>everything else - unmapped</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="map">
+        <thead>
+          <tr><th>Range</th><th>Size</th><th>Target</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="addr">0x0000_0000-0x00FF_FFFF</td>
+            <td class="addr">16 MB</td>
+            <td class="desc"><code>imem_req_o</code></td>
+            <td class="desc">Boot ROM (real) + Flash/XIP (reserved, not implemented)</td>
+          </tr>
+          <tr>
+            <td class="addr">0x0200_0000-0x02FF_FFFF</td>
+            <td class="addr">16 MB</td>
+            <td class="desc"><code>ram_req_o</code></td>
+            <td class="desc">SRAM, 4 KB physical - mirrors across the rest of the window</td>
+          </tr>
+          <tr>
+            <td class="addr">0x0400_0000-0x04FF_FFFF</td>
+            <td class="addr">16 MB</td>
+            <td class="desc"><code>periph_req_o</code></td>
+            <td class="desc">GPIO, Timer, UART - each its own 256 B sub-window</td>
+          </tr>
+          <tr>
+            <td class="addr">everything else</td>
+            <td class="addr">-</td>
+            <td class="desc">-</td>
+            <td class="desc">unmapped: reads <span class="ref">0</span>, acks the same cycle</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Boot ROM / Flash</h2>
+      <span class="section-sub">rtl/core/tinymcu_imem.vhd</span>
+    </div>
+
+    <div class="region">
+      <div class="region-head">
+        <span class="region-range rom">0x0000_0000-0x0000_7FFF</span>
+        <span class="region-size">32 KB</span>
+        <span class="tag real">real</span>
+      </div>
+      <p class="region-note">
+        Boot ROM. <span class="ref">tinymcu_imem_bootrom.vhd</span>, sized by
+        <span class="ref">IMEM_ADDR_WIDTH</span> (default 13 &rarr; 2<sup>13</sup> words).
+        Synchronous read, BRAM-inferable - one cycle of latency on both the fetch and
+        data-side port (see the pipeline doc's IF stage). Holds whatever
+        <span class="ref">scripts/hex2rom.py</span> last wrote into it.
+      </p>
+    </div>
+
+    <div class="region">
+      <div class="region-head">
+        <span class="region-range rom">0x0000_8000-0x00FF_FFFF</span>
+        <span class="region-size">&asymp; 16&nbsp;MB &minus; 32&nbsp;KB</span>
+        <span class="tag reserved">reserved</span>
+      </div>
+      <p class="region-note">
+        Flash + XIP. Reserved in <span class="ref">tinymcu_pkg.vhd</span>
+        (<span class="ref">FLASH_BASE</span>/<span class="ref">FLASH_END</span>) and in
+        <span class="ref">sw/linker.ld</span>'s <span class="ref">FLASH</span> output region,
+        but <span class="ref">tinymcu_imem.vhd</span> only ever instantiates the Boot ROM -
+        reads up here currently return <span class="ref">0</span>.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>SRAM</h2>
+      <span class="section-sub">rtl/core/tinymcu_sram.vhd, tinymcu_sram_generic.vhd</span>
+    </div>
+
+    <div class="region">
+      <div class="region-head">
+        <span class="region-range ram">0x0200_0000-0x0200_0FFF</span>
+        <span class="region-size">4 KB physical</span>
+        <span class="tag real">real</span>
+      </div>
+      <p class="region-note">
+        <span class="ref">RAM_ADDR_WIDTH</span> default 10 &rarr; 2<sup>10</sup> words,
+        word-addressed (<span class="ref">addr_i =&nbsp;req_i.addr(ADDR_WIDTH+1 downto 2)</span>).
+        Synchronous read, same BRAM-style one-cycle latency as the Boot ROM.
+      </p>
+    </div>
+
+    <div class="note">
+      <div class="note-head">Aliasing</div>
+      <p>
+        <span class="ref">tinymcu_sram_generic.vhd</span> only ever looks at the low
+        <span class="ref">ADDR_WIDTH</span> address bits - nothing above that is
+        checked. The 4 KB array therefore repeats every 4 KB across the entire
+        16&nbsp;MB <span class="ref">0x0200_0000</span> window; e.g.
+        <span class="ref">0x0200_1000</span> aliases <span class="ref">0x0200_0000</span>.
+      </p>
+    </div>
+
+    <div class="note">
+      <div class="note-head">Linked vs. physical</div>
+      <p>
+        <span class="ref">sw/linker.ld</span> only carves out <span class="ref">1 KB</span>
+        for its <span class="ref">RAM</span> output section (<span class="ref">_stack_top</span>
+        sits at <span class="ref">0x0200_0400</span>), well short of the full 4&nbsp;KB the
+        hardware actually provides - headroom, not a hardware limit.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Peripherals</h2>
+      <span class="section-sub">rtl/peripherals/tinymcu_periph.vhd, addr[31:8]</span>
+    </div>
+    <p class="lead">
+      Same top-byte-style trick one level down: each peripheral gets a fixed 256 B window,
+      selected by <span class="ref">addr[31:8]</span>. Registers below are word-aligned
+      offsets inside that window; matches <span class="ref">sw/lib/tinymcu_*.h</span> exactly.
+    </p>
+
+    <div class="periph-grid">
+      <div class="periph-card">
+        <div class="periph-title">
+          <span class="name" style="color:var(--accent-3-ink);">GPIO</span>
+          <span class="base">0x0400_0000</span>
+        </div>
+        <div class="reg-row"><span class="reg-off">0x00</span><span class="reg-name">CONFIG</span><span class="reg-desc">general-purpose, no defined bits yet</span></div>
+        <div class="reg-row"><span class="reg-off">0x04</span><span class="reg-name">DDR</span><span class="reg-desc">direction, 1 = output</span></div>
+        <div class="reg-row"><span class="reg-off">0x08</span><span class="reg-name">PULL_SEL</span><span class="reg-desc">1 = pull-up, 0 = pull-down</span></div>
+        <div class="reg-row"><span class="reg-off">0x0C</span><span class="reg-name">PULL_EN</span><span class="reg-desc">1 = pull active</span></div>
+        <div class="reg-row"><span class="reg-off">0x10</span><span class="reg-name">OUT</span><span class="reg-desc">output level, DDR = 1 pins only</span></div>
+        <div class="reg-row"><span class="reg-off">0x14</span><span class="reg-name">IN</span><span class="reg-desc">read-only, actual pin level</span></div>
+      </div>
+
+      <div class="periph-card">
+        <div class="periph-title">
+          <span class="name" style="color:var(--accent-3-ink);">Timer</span>
+          <span class="base">0x0400_0100</span>
+        </div>
+        <div class="reg-row"><span class="reg-off">0x00</span><span class="reg-name">CONFIG</span><span class="reg-desc">bits 3:0 = CLKSEL</span></div>
+        <div class="reg-row"><span class="reg-off">0x04</span><span class="reg-name">INT_CONFIG</span><span class="reg-desc">bit 0 = compare IRQ enable</span></div>
+        <div class="reg-row"><span class="reg-off">0x08</span><span class="reg-name">INT_STATUS</span><span class="reg-desc">bit 0 = compare flag, write 0 clears</span></div>
+        <div class="reg-row"><span class="reg-off">0x0C</span><span class="reg-name">COUNTER</span><span class="reg-desc">free-running, ticks at CLKSEL rate</span></div>
+        <div class="reg-row"><span class="reg-off">0x10</span><span class="reg-name">COMPARE</span><span class="reg-desc">compare target for the IRQ</span></div>
+      </div>
+
+      <div class="periph-card">
+        <div class="periph-title">
+          <span class="name" style="color:var(--accent-3-ink);">UART</span>
+          <span class="base">0x0400_0200</span>
+        </div>
+        <div class="reg-row"><span class="reg-off">0x00</span><span class="reg-name">CONFIG</span><span class="reg-desc">data bits / stop bits / parity</span></div>
+        <div class="reg-row"><span class="reg-off">0x04</span><span class="reg-name">BAUDRATE</span><span class="reg-desc">clk_i cycles per bit</span></div>
+        <div class="reg-row"><span class="reg-off">0x08</span><span class="reg-name">STATUS</span><span class="reg-desc">bits 2:0, see TX_ACTIVE/RX_READY/PARITY_ERROR</span></div>
+        <div class="reg-row"><span class="reg-off">0x0C</span><span class="reg-name">TX_DATA</span><span class="reg-desc">write to start a transmission (idle only)</span></div>
+        <div class="reg-row"><span class="reg-off">0x10</span><span class="reg-name">RX_DATA</span><span class="reg-desc">last byte; read clears RX_READY</span></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <div class="note-head">Unmapped peripheral space</div>
+      <p>
+        <span class="ref">0x0400_0300-0x04FF_FFFF</span> is not decoded by
+        <span class="ref">tinymcu_periph.vhd</span> - reads as <span class="ref">0</span>,
+        same as any other unmapped address. Room for future peripherals without touching the
+        top-level decoder.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">rtl/tinymcu_pkg.vhd &middot; rtl/core/tinymcu_addr_decoder.vhd &middot; rtl/peripherals/tinymcu_periph.vhd</span>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  var strip = document.getElementById('strip');
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i <= 0xFF; i++) {
+    var seg = document.createElement('div');
+    seg.className = 'seg';
+    if (i === 0x00) { seg.className += ' rom'; seg.title = '0x00 -- ROM / Flash'; }
+    else if (i === 0x02) { seg.className += ' ram'; seg.title = '0x02 -- RAM'; }
+    else if (i === 0x04) { seg.className += ' periph'; seg.title = '0x04 -- Peripherals'; }
+    else { seg.title = '0x' + i.toString(16).toUpperCase().padStart(2, '0') + ' -- unmapped'; }
+    frag.appendChild(seg);
+  }
+  strip.appendChild(frag);
+})();
+</script>
+</body>
+</html>
