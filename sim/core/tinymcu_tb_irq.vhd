@@ -50,7 +50,7 @@ begin
             clk_i        => clk,
             rst_i        => rst,
             ext_irq_i    => ext_irq,
-            gpio_port_a  => gpio,
+            gpio_port  => gpio,
             debug_regs_o => dbg
         );
 

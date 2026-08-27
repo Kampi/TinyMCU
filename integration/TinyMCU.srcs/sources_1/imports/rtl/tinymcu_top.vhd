@@ -34,7 +34,7 @@ entity tinymcu_top is
         rst_i       : in std_logic;
 
         -- GPIO ports
-        gpio_port_a : inout std_logic_vector(3 downto 0);
+        gpio_port : inout std_logic_vector(3 downto 0);
 
         -- UART
         uart_tx_o   : out std_logic;
@@ -78,7 +78,7 @@ begin
             clk_i           => ClockOut,
             rst_i           => rst_i,
             ext_irq_i       => IRQ,
-            gpio_port_a     => GPIO_Out,
+            gpio_port     => GPIO_Out,
             uart_tx_o       => uart_tx_o,
             uart_rx_i       => uart_rx_i,
             uart_rts_o      => RTS,
@@ -86,6 +86,6 @@ begin
             debug_regs_o    => debug_regs
         );
 
-        gpio_port_a <= GPIO_Out(3 downto 0);
+        gpio_port <= GPIO_Out(3 downto 0);
 
 end architecture tinymcu_top_rtl;

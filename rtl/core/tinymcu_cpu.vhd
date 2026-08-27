@@ -67,7 +67,7 @@ entity tinymcu_cpu is
         ext_irq_i       : in std_logic;
 
         -- GPIO ports
-        gpio_port_a     : inout std_logic_vector(31 downto 0);
+        gpio_port     : inout std_logic_vector(31 downto 0);
 
         -- UART
         uart_tx_o       : out std_logic;
@@ -188,7 +188,9 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal uart_rsp     : bus_rsp_t;
 
     -- IRQ signals
-    signal periph_timer_irq : std_ulogic;
+    signal timer_irq    : std_ulogic;
+    signal gpio_irq     : std_ulogic;
+    signal uart_irq     : std_ulogic;
 
     -- '1' when this source is both enabled (mie) and pending (mip)
     signal msi_pending  : std_ulogic;
@@ -205,6 +207,7 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal mip          : word_t;
     signal mepc         : word_t;
     signal csr_we       : std_ulogic;
+    signal csr_ext_irq  : std_ulogic;
 
 begin
 
@@ -505,8 +508,8 @@ begin
         port map (
             clk_i           => clk_i,
             rst_i           => rst_i,
-            ext_irq_i       => ext_irq_i,
-            timer_irq_i     => periph_timer_irq,
+            ext_irq_i       => csr_ext_irq,
+            timer_irq_i     => timer_irq,
             software_irq_i  => '0',
             trap_i          => is_trap,
             trap_pc_i       => pc_ex,
@@ -531,6 +534,10 @@ begin
                          (msi_pending = '1' or mti_pending = '1' or mei_pending = '1') and
                          stall = '0')
                 else '0';
+
+    -- Simple ORing is enough for now. Change it to an interrupt controller later.
+    -- Add uart_irq here too once tinymcu_periph_uart.vhd gains its own irq_o.
+    csr_ext_irq <= ext_irq_i or gpio_irq or uart_irq;
 
     ----------------------------------------------------------------------
     -- Branch comparator and jump target addresses
@@ -657,7 +664,8 @@ begin
             rst_i       => rst_i,
             gpio_req_i  => gpio_req,
             gpio_rsp_o  => gpio_rsp,
-            gpio_port_a => gpio_port_a
+            irq_o       => gpio_irq,
+            gpio_port   => gpio_port
         );
 
     ----------------------------------------------------------------------
@@ -667,7 +675,7 @@ begin
         port map (
             clk_i       => clk_i,
             rst_i       => rst_i,
-            irq_o       => periph_timer_irq,
+            irq_o       => timer_irq,
             timer_req_i => timer_req,
             timer_rsp_o => timer_rsp
         );
@@ -681,6 +689,7 @@ begin
             rst_i       => rst_i,
             uart_req_i  => uart_req,
             uart_rsp_o  => uart_rsp,
+            uart_irq_o  => uart_irq,
             tx_o        => uart_tx_o,
             rx_i        => uart_rx_i,
             rts_o       => uart_rts_o,

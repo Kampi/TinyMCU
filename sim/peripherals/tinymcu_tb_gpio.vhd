@@ -33,6 +33,7 @@ architecture sim of tb_gpio is
     signal clk  : std_ulogic := '0';
     signal rst  : std_ulogic := '1';
     signal gpio : std_logic_vector(31 downto 0);
+    signal irq  : std_ulogic;
     signal req  : bus_req_t := (addr => (others => '0'), data => (others => '0'), ben => (others => '0'), we => '0', stb => '0');
     signal rsp  : bus_rsp_t;
 
@@ -44,9 +45,10 @@ begin
         port map (
             clk_i => clk,
             rst_i => rst,
-            gpio_port_a => gpio,
+            gpio_port => gpio,
             gpio_req_i => req,
-            gpio_rsp_o => rsp
+            gpio_rsp_o => rsp,
+            irq_o => irq
         );
 
     gpio(3) <= '1';
@@ -86,7 +88,7 @@ begin
         bus_read(x"00000004", rd);  -- DDR (word offset 1)
         check("DDR resets to all-input (0)", to_integer(unsigned(rd)) = 0, errors);
 
-        -- Pin 0 as output, drive it high then low, observe gpio_port_a.
+        -- Pin 0 as output, drive it high then low, observe gpio_port.
         bus_write(x"00000004", x"00000001");  -- DDR bit0 = 1 (output)
         bus_write(x"00000010", x"00000001");  -- OUT bit0 = 1 (word offset 4)
         wait for CLK_PERIOD;
@@ -121,7 +123,95 @@ begin
         bus_read(x"00000014", rd);
         check("external driver on pin 3 overrides its pull-down", rd(3) = '1', errors);
 
-        -- CONFIG: plain read/write storage, no defined bits yet.
+        -- ---- Interrupts ----
+
+        -- Reset state: INT_CONFIG/INT_STATUS both 0, irq_o low.
+        bus_read(x"00000018", rd);  -- INT_CONFIG (word offset 6)
+        check("INT_CONFIG resets to 0", to_integer(unsigned(rd)) = 0, errors);
+        bus_read(x"0000001C", rd);  -- INT_STATUS (word offset 7)
+        check("INT_STATUS resets to 0", to_integer(unsigned(rd)) = 0, errors);
+        check("irq_o low with nothing enabled", irq = '0', errors);
+
+        -- Pin 5, per-pin interrupt enabled, global enable (CONFIG bit0) still off.
+        bus_write(x"00000018", x"00000020");  -- INT_CONFIG bit5 = 1
+        gpio(5) <= '1';
+        wait for CLK_PERIOD * 2;
+        bus_read(x"0000001C", rd);
+        check("edge ignored while global interrupt enable is off", rd(5) = '0', errors);
+        check("irq_o stays low while global interrupt enable is off", irq = '0', errors);
+
+        -- Enable the global interrupt too. The level is already settled
+        -- (gpio_port_prev caught up during the wait above), so this must
+        -- not retrigger on its own.
+        bus_write(x"00000000", x"00000001");  -- CONFIG bit0 = 1 (global enable)
+        wait for CLK_PERIOD * 2;
+        bus_read(x"0000001C", rd);
+        check("enabling globally doesn't retrigger an already-settled level", rd(5) = '0', errors);
+
+        -- A real falling edge on pin 5, now with both enables active.
+        gpio(5) <= '0';
+        wait for CLK_PERIOD * 2;
+        bus_read(x"0000001C", rd);
+        check("falling edge on an enabled pin sets its status bit", rd(5) = '1', errors);
+        check("irq_o goes high", irq = '1', errors);
+
+        -- Pin 6 is not enabled in INT_CONFIG -- its edge must not set a bit.
+        gpio(6) <= '1';
+        wait for CLK_PERIOD * 2;
+        bus_read(x"0000001C", rd);
+        check("disabled pin's edge doesn't set its status bit", rd(6) = '0', errors);
+
+        -- Sticky: must not self-clear just because there's no new edge.
+        wait for CLK_PERIOD * 5;
+        bus_read(x"0000001C", rd);
+        check("status bit stays set without a software clear", rd(5) = '1', errors);
+        check("irq_o stays high without a software clear", irq = '1', errors);
+
+        -- Software acknowledges by writing INT_STATUS.
+        bus_write(x"0000001C", x"00000000");
+        wait for CLK_PERIOD;
+        bus_read(x"0000001C", rd);
+        check("INT_STATUS clears on write", to_integer(unsigned(rd)) = 0, errors);
+        check("irq_o drops after clearing", irq = '0', errors);
+
+        -- ---- Debounce (CONFIG bits 15:1) ----
+
+        -- Pin 7 was never driven before this point, so it floats ('Z' ->
+        -- 'X' through to_x01) -- settle it to a clean, defined '0' while
+        -- debounce is still disabled (threshold 0 tracks the raw pad
+        -- immediately), *before* raising the threshold below. Otherwise
+        -- gpio_debounced(7) would carry that undefined history into the
+        -- new threshold instead of starting from a known level.
+        gpio(7) <= '0';
+        wait for CLK_PERIOD * 2;
+
+        -- Clear CONFIG first (the interrupt block above left bit0 set),
+        -- then set a debounce threshold of 4 cycles, global interrupt
+        -- enable still on, pin 7 armed.
+        bus_write(x"00000000", x"00000009");  -- bits 15:1 = 4, bit0 = 1
+        bus_write(x"00000018", x"000000A0");  -- INT_CONFIG bits 5,7 = 1
+        bus_write(x"0000001C", x"00000000");  -- clear any stale flags
+        wait for CLK_PERIOD * 3;
+
+        -- A glitch shorter than the threshold: pin 7 flips high for only
+        -- 2 cycles, well under the 4-cycle requirement, then back low.
+        gpio(7) <= '1';
+        wait for CLK_PERIOD * 2;
+        gpio(7) <= '0';
+        wait for CLK_PERIOD * 6;
+        bus_read(x"0000001C", rd);
+        check("glitch shorter than the debounce threshold is rejected", rd(7) = '0', errors);
+
+        -- A real change held for longer than the threshold.
+        gpio(7) <= '1';
+        wait for CLK_PERIOD * 6;
+        bus_read(x"0000001C", rd);
+        check("change held past the debounce threshold sets the flag", rd(7) = '1', errors);
+
+        bus_write(x"0000001C", x"00000000");  -- clear before the next section
+        bus_write(x"00000000", x"00000001");  -- back to debounce disabled, global enable on
+
+        -- CONFIG: plain read/write storage outside bits 15:0.
         bus_write(x"00000000", x"DEADBEEF");
         bus_read(x"00000000", rd);
         check("CONFIG is plain read/write storage", rd = x"DEADBEEF", errors);

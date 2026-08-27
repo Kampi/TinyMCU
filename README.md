@@ -1,5 +1,7 @@
 # TinyMCU
 
+[![Documentation](https://img.shields.io/badge/Documentation-HTML-007ec6?longCache=true&style=flat&logo=asciidoctor&colorA=555555)](docs/index.html)
+
 ## Table of Contents
 
 - [TinyMCU](#tinymcu)

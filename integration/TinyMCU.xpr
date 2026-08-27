@@ -282,6 +282,14 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PPRDIR/../sim/core/tinymcu_tb_irq.vhd">
+        <FileInfo>
+          <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="AutoDisabled" Val="1"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
         <Option Name="TopModule" Val="tb_cpu"/>
@@ -300,14 +308,6 @@
     </FileSet>
     <FileSet Name="IRQ" Type="SimulationSrcs" RelSrcDir="$PSRCDIR/IRQ" RelGenDir="$PGENDIR/IRQ">
       <Filter Type="Srcs"/>
-      <File Path="$PPRDIR/../sim/tinymcu_tb_irq.vhd">
-        <FileInfo>
-          <Attr Name="Library" Val="tinymcu"/>
-          <Attr Name="AutoDisabled" Val="1"/>
-          <Attr Name="UsedIn" Val="synthesis"/>
-          <Attr Name="UsedIn" Val="simulation"/>
-        </FileInfo>
-      </File>
       <Config>
         <Option Name="DesignMode" Val="RTL"/>
         <Option Name="TopModule" Val="tinymcu_top"/>

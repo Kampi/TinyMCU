@@ -1,0 +1,352 @@
+/*
+ * Shared stylesheet for the TinyMCU docs/*.html reference documents
+ * (pipeline.html, memory.html, bus.html, gpio.html). Holds everything
+ * that's genuinely common: the color/type tokens, base typography, and
+ * the handful of components every doc reuses (header, section
+ * scaffolding, table.map, table.timing, .note, footer, print base).
+ *
+ * One rule drives all of it: `.ref` is THE style for "this text names a
+ * specific signal/register/field/function" -- bold mono, --accent-ink --
+ * used identically whether it's a <span> in prose or a table cell
+ * (table.map td.field, table.api td.fn, table.timing tbody th). Colors
+ * that encode something ELSE (which memory region, what a signal
+ * drives, a pin's drive state, ...) are deliberately different and stay
+ * defined in each page's own <style> block, not here.
+ */
+
+:root {
+  --bg: #f3f6fb;
+  --paper-line: rgba(22, 50, 79, 0.06);
+  --surface: #ffffff;
+  --surface-2: #e9f0f8;
+  --surface-3: #dbe6f2;
+  --ink: #16324f;
+  --ink-dim: #5b7690;
+  --ink-faint: #8ba1b9;
+  --line: #bfd0e1;
+  --line-strong: #8ea9c4;
+  --accent: #c9720a;
+  --accent-soft: #f4dfc0;
+  --accent-ink: #7a4600;
+  --accent-2: #147d76;
+  --accent-2-soft: #cdeae7;
+  --accent-2-ink: #0c5450;
+  --accent-3: #5b5bd6;
+  --accent-3-soft: #e1e0fa;
+  --accent-3-ink: #3a3ab0;
+  --shadow: 0 1px 2px rgba(22, 50, 79, 0.06), 0 8px 24px rgba(22, 50, 79, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b2138;
+    --paper-line: rgba(255, 255, 255, 0.045);
+    --surface: #123255;
+    --surface-2: #173b63;
+    --surface-3: #1c4370;
+    --ink: #eef4fb;
+    --ink-dim: #9db4cd;
+    --ink-faint: #6e88a3;
+    --line: #2f5883;
+    --line-strong: #3f6c99;
+    --accent: #ffb454;
+    --accent-soft: #4a3417;
+    --accent-ink: #ffcf94;
+    --accent-2: #5fd1c9;
+    --accent-2-soft: #0f3d3a;
+    --accent-2-ink: #8fe6df;
+    --accent-3: #9d9dff;
+    --accent-3-soft: #2a2a5c;
+    --accent-3-ink: #c1c1ff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b2138;
+  --paper-line: rgba(255, 255, 255, 0.045);
+  --surface: #123255;
+  --surface-2: #173b63;
+  --surface-3: #1c4370;
+  --ink: #eef4fb;
+  --ink-dim: #9db4cd;
+  --ink-faint: #6e88a3;
+  --line: #2f5883;
+  --line-strong: #3f6c99;
+  --accent: #ffb454;
+  --accent-soft: #4a3417;
+  --accent-ink: #ffcf94;
+  --accent-2: #5fd1c9;
+  --accent-2-soft: #0f3d3a;
+  --accent-2-ink: #8fe6df;
+  --accent-3: #9d9dff;
+  --accent-3-soft: #2a2a5c;
+  --accent-3-ink: #c1c1ff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    repeating-linear-gradient(0deg, var(--paper-line) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, var(--paper-line) 0 1px, transparent 1px 28px),
+    var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace; }
+
+/* THE variable/signal/register/function name style -- text and tables alike. */
+.ref,
+table.map td.field,
+table.api td.fn,
+table.timing tbody th {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+.cyc {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: var(--ink);
+  background: var(--surface-3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 56px 28px 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 52px;
+}
+
+/* ---------- Header ---------- */
+header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+header p {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 15.5px;
+}
+
+header p code {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.92em;
+  background: var(--surface-3);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+}
+
+/* ---------- Section scaffolding ---------- */
+section { display: flex; flex-direction: column; gap: 18px; }
+
+.section-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+h2 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.section-sub {
+  color: var(--ink-faint);
+  font-size: 13.5px;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+section > p.lead {
+  margin: -6px 0 0;
+  color: var(--ink-dim);
+  font-size: 14.5px;
+}
+
+/* ---------- table.map (register/signal field tables) ---------- */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+table.map { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.map th, table.map td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+table.map thead th {
+  color: var(--ink-faint);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-strong);
+  font-family: "IBM Plex Mono", monospace;
+}
+table.map tbody tr:last-child td { border-bottom: none; }
+table.map td.field { white-space: nowrap; }
+table.map td.desc { color: var(--ink-dim); }
+table.map td.desc code {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* ---------- table.timing (cycle-by-cycle traces) ---------- */
+.timing-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+table.timing {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+}
+table.timing th, table.timing td {
+  padding: 9px 12px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+table.timing thead th {
+  color: var(--ink-faint);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-strong);
+}
+table.timing thead th:first-child, table.timing tbody th {
+  text-align: left;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line-strong);
+}
+table.timing tbody th .hint { display: block; font-weight: 400; color: var(--ink-faint); font-size: 10.5px; margin-top: 1px; }
+table.timing tbody tr:last-child td, table.timing tbody tr:last-child th { border-bottom: none; }
+
+.cell-tag {
+  display: inline-block;
+  min-width: 30px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-weight: 600;
+}
+.tag-idle   { color: var(--ink-faint); }
+.tag-hold   { background: var(--accent-soft); color: var(--accent-ink); }
+.tag-bubble { background: transparent; color: var(--accent-ink); border: 1px dashed var(--accent); }
+.tag-ok     { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+.tag-hi     { background: var(--accent); color: #2b1c00; }
+.tag-lo     { color: var(--ink-faint); }
+
+/* ---------- Callout / note ---------- */
+.note {
+  background: var(--surface-2);
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.note-head {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+.note p { margin: 0; color: var(--ink-dim); font-size: 13.5px; }
+.notes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .notes-grid { grid-template-columns: 1fr; } }
+
+footer {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+}
+footer .mono { color: var(--ink-faint); }
+
+/* ---------- Print (shared base; each page adds its own layout rules) ---------- */
+@media print {
+  /* Some browsers' print dialogs override this with whatever
+     orientation the user has picked (often portrait by default) -- if a
+     diagram comes out portrait-cramped, pick "Landscape" / "Querformat"
+     in the dialog's layout option explicitly. */
+  @page { size: A4 landscape; margin: 14mm; }
+
+  :root, :root[data-theme="dark"] {
+    --bg: #ffffff;
+    --paper-line: transparent;
+    --surface: #ffffff;
+    --surface-2: #f2f5f9;
+    --surface-3: #e7edf4;
+    --ink: #16324f;
+    --ink-dim: #4c6883;
+    --ink-faint: #7891a9;
+    --line: #c7d5e3;
+    --line-strong: #9db4cb;
+    --accent: #c9720a;
+    --accent-soft: #f4dfc0;
+    --accent-ink: #7a4600;
+    --accent-2: #147d76;
+    --accent-2-soft: #cdeae7;
+    --accent-2-ink: #0c5450;
+    --accent-3: #5b5bd6;
+    --accent-3-soft: #e1e0fa;
+    --accent-3-ink: #3a3ab0;
+    --shadow: none;
+  }
+
+  body { background: #ffffff; }
+  section { break-inside: avoid; }
+  .table-wrap, .timing-wrap { box-shadow: none; }
+  table.timing { font-size: 10.5px; }
+  table.timing th, table.timing td { padding: 6px 8px; }
+  .timing-wrap { overflow: visible; border-radius: 6px; }
+  table.timing thead th:first-child, table.timing tbody th { position: static; }
+}

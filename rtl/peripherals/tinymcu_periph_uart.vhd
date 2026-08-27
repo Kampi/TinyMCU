@@ -67,6 +67,9 @@ entity tinymcu_periph_uart is
         uart_req_i : in  bus_req_t;
         uart_rsp_o : out bus_rsp_t;
 
+        -- Interrupt output
+        irq_o       : out std_ulogic;
+
         -- UART data lines
         tx_o        : out std_ulogic;
         rx_i        : in  std_ulogic;
@@ -77,9 +80,9 @@ end entity tinymcu_periph_uart;
 
 architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
 
-    type UART_Parity_Mode is (Parity_None, Parity_Even, Parity_Odd);
-    type UART_Tx_State is (Tx_Idle, Tx_Start_Bit, Tx_Data_Bits, Tx_Parity_Bit, Tx_Stop_Bits, Tx_Complete);
-    type UART_Rx_State is (Rx_Idle, Rx_Start_Bit, Rx_Data_Bits, Rx_Parity_Bit, Rx_Stop_Bit, Rx_Complete);
+    type UART_Parity_Mode_t is (Parity_None, Parity_Even, Parity_Odd);
+    type UART_Tx_State_t is (Tx_Idle, Tx_Start_Bit, Tx_Data_Bits, Tx_Parity_Bit, Tx_Stop_Bits, Tx_Complete);
+    type UART_Rx_State_t is (Rx_Idle, Rx_Start_Bit, Rx_Data_Bits, Rx_Parity_Bit, Rx_Stop_Bit, Rx_Complete);
 
     constant UART_REG_CONFIG        : integer := 0;
     constant UART_REG_BAUDRATE      : integer := 1;
@@ -109,8 +112,8 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
     signal rx_data                : std_ulogic_vector(8 downto 0) := (others => '0');
 
     signal word_offset      : integer range 0 to 63;
-    signal current_tx_state : UART_Tx_State := Tx_Idle;
-    signal current_rx_state : UART_Rx_State := Rx_Idle;
+    signal current_tx_state : UART_Tx_State_t := Tx_Idle;
+    signal current_rx_state : UART_Rx_State_t := Rx_Idle;
 
     function databits_reg(databits : std_ulogic_vector(1 downto 0)) return integer is
     begin
@@ -130,7 +133,7 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
         end case;
     end function;
 
-    function parity_reg(parity : std_ulogic_vector(1 downto 0)) return UART_Parity_Mode is
+    function parity_reg(parity : std_ulogic_vector(1 downto 0)) return UART_Parity_Mode_t is
     begin
         case parity is
             when "01"   => return Parity_Even;
@@ -187,7 +190,7 @@ begin
         variable baudrate       : integer := 0;
         variable datawidth      : integer := 0;
         variable stopbits       : integer := 0;
-        variable parity_mode    : UART_Parity_Mode;
+        variable parity_mode    : UART_Parity_Mode_t;
     begin
         if rising_edge(clk_i) then
             if rst_i = '1' then
@@ -329,7 +332,7 @@ begin
         variable baudrate       : integer := 0;
         variable datawidth      : integer := 0;
         variable stopbits       : integer := 0;
-        variable parity_mode    : UART_Parity_Mode;
+        variable parity_mode    : UART_Parity_Mode_t;
     begin
         if rising_edge(clk_i) then
             if rst_i = '1' then

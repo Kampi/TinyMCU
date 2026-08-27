@@ -47,7 +47,7 @@ end entity tinymcu_cpu_div;
 
 architecture tinymcu_cpu_div_rtl of tinymcu_cpu_div is
 
-    type Div_State is (Idle, Check, Calc);
+    type Div_State_t is (Idle, Check, Calc);
 
     signal start            : std_ulogic;
     signal neg_result       : std_ulogic;
@@ -61,7 +61,7 @@ architecture tinymcu_cpu_div_rtl of tinymcu_cpu_div is
     signal quotient_corr    : std_ulogic_vector((op_a_i'length - 1) downto 0);
     signal remainder_corr   : std_ulogic_vector((op_a_i'length - 1) downto 0);
 
-    signal current_state    : Div_State := Idle;
+    signal current_state    : Div_State_t := Idle;
 
 begin
 

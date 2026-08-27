@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tinymcu-docs.css">
+
+<style>
+  /* ---------- Doc index cards ---------- */
+  .doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .doc-card {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    text-decoration: none;
+    color: inherit;
+  }
+  .doc-card:hover { border-color: var(--line-strong); }
+
+  .doc-num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-faint);
+    flex: none;
+    width: 22px;
+  }
+
+  .doc-body { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+  .doc-title { font-weight: 700; font-size: 16.5px; color: var(--ink); }
+  .doc-desc { font-size: 13.5px; color: var(--ink-dim); }
+  .doc-file {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    color: var(--accent-ink);
+    flex: none;
+    align-self: center;
+  }
+
+  @media (max-width: 600px) {
+    .doc-card { flex-wrap: wrap; }
+    .doc-file { margin-left: 40px; }
+  }
+
+  @media print {
+    .doc-card { box-shadow: none; break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; docs/</div>
+    <h1>Documentation</h1>
+    <p>
+      Reference documents for TinyMCU's RTL, generated from the source and kept in sync
+      by hand. Each one is a standalone page &mdash; open any of them directly, or start here.
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Contents</h2>
+      <span class="section-sub">4 documents</span>
+    </div>
+
+    <div class="doc-list">
+      <a class="doc-card" href="pipeline.html">
+        <span class="doc-num">01</span>
+        <span class="doc-body">
+          <span class="doc-title">Pipeline</span>
+          <span class="doc-desc">The 3-stage IF/ID/EX pipeline: datapath, hazard/redirect logic, and cycle-accurate timing for a taken branch and a stall.</span>
+        </span>
+        <span class="doc-file">pipeline.html</span>
+      </a>
+
+      <a class="doc-card" href="memory.html">
+        <span class="doc-num">02</span>
+        <span class="doc-body">
+          <span class="doc-title">Memory Layout</span>
+          <span class="doc-desc">The top-byte address map, Boot ROM/Flash and SRAM regions, and every peripheral's register window.</span>
+        </span>
+        <span class="doc-file">memory.html</span>
+      </a>
+
+      <a class="doc-card" href="bus.html">
+        <span class="doc-num">03</span>
+        <span class="doc-body">
+          <span class="doc-title">Bus Protocol</span>
+          <span class="doc-desc"><span class="ref">bus_req_t</span>/<span class="ref">bus_rsp_t</span>, the stb/ack handshake for zero- vs. one-wait-state targets, and the full decode topology.</span>
+        </span>
+        <span class="doc-file">bus.html</span>
+      </a>
+
+      <a class="doc-card" href="gpio.html">
+        <span class="doc-num">04</span>
+        <span class="doc-body">
+          <span class="doc-title">GPIO</span>
+          <span class="doc-desc">Register map, pin driver states, the debounce filter, and edge-triggered interrupts.</span>
+        </span>
+        <span class="doc-file">gpio.html</span>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">docs/tinymcu-docs.css</span>
+  </footer>
+
+</main>
+</body>
+</html>

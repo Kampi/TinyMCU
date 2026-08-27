@@ -56,7 +56,7 @@ begin
             clk_i        => clk,
             rst_i        => rst,
             ext_irq_i    => '0',
-            gpio_port_a  => open,
+            gpio_port  => open,
             debug_regs_o => dbg_regs
         );
 

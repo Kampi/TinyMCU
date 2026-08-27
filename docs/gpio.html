@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU GPIO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tinymcu-docs.css">
+
+<style>
+  /* ---------- Tables: page-specific width; td.reg holds byte offsets
+     (hex values, not identifiers), so it stays plain ink rather than
+     the shared .ref accent (docs/tinymcu-docs.css). ---------- */
+  table.map { min-width: 620px; }
+  table.map td.reg {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .rw {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 5px;
+  }
+  .rw.rw-rw { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+  .rw.rw-ro { background: var(--surface-3); color: var(--ink-faint); }
+
+  /* ---------- Pin driver diagram ---------- */
+  .drv {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 760px) { .drv { grid-template-columns: 1fr; } }
+  .drv-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .drv-cond {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .drv-val {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .drv-val.z { color: var(--ink-faint); }
+  .drv-val.h { color: var(--accent-2-ink); }
+  .drv-val.l { color: var(--accent-2-ink); }
+  .drv-val.strong { color: var(--accent-ink); }
+  .drv-desc { font-size: 12.5px; color: var(--ink-dim); }
+
+  /* ---------- Timing tables: page-specific width ---------- */
+  table.timing { min-width: 460px; }
+
+  /* ---------- API table: page-specific width; td.eff (register effect,
+     e.g. "DDR(pin) = 1") is a distinct dimension from td.fn (the
+     function name itself), so it keeps its own teal, same idea as
+     pipeline.html's .eq .target. ---------- */
+  table.api { min-width: 780px; }
+  table.api td.eff {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--accent-2-ink);
+    white-space: nowrap;
+  }
+  .api-group {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--surface-2);
+  }
+  .api-group td { padding: 7px 12px; border-bottom: 1px solid var(--line-strong); }
+
+  /* ---------- Print: page-specific additions on top of the shared
+     print base (docs/tinymcu-docs.css) ---------- */
+  @media print {
+    .drv-card { box-shadow: none; }
+    .drv-card, .note { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; rtl/peripherals/tinymcu_periph_gpio.vhd</div>
+    <h1>GPIO</h1>
+    <p>
+      One 32-bit port, one bit per pin in every register. Output drive is strong,
+      pull resistors are weak (<code>'H'</code>/<code>'L'</code>), and every pin can raise its
+      own edge-triggered interrupt, gated by both a per-pin enable and one master switch.
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Generics</h2>
+      <span class="section-sub">entity tinymcu_periph_gpio</span>
+    </div>
+    <div class="table-wrap">
+      <table class="map">
+        <thead><tr><th>Generic</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="reg">PORT_WIDTH</td><td class="reg">32</td>
+            <td class="desc">Number of pins, and the width of every per-pin register (DDR, PULL_SEL, PULL_EN, OUT, IN, INT_CONFIG, INT_STATUS).</td>
+          </tr>
+          <tr>
+            <td class="reg">DEBOUNCE_WIDTH</td><td class="reg">15</td>
+            <td class="desc">Width of the debounce threshold field in CONFIG (bits <code>GPIO_DEBOUNCE_LSB</code> to <code>GPIO_DEBOUNCE_LSB + DEBOUNCE_WIDTH - 1</code>, LSB fixed at bit 1). Max representable threshold is <code>2^DEBOUNCE_WIDTH - 1</code> cycles. A concurrent <code>assert</code> fails elaboration if the field doesn't fit inside CONFIG's 32 bits alongside bit 0.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Register Map</h2>
+      <span class="section-sub">0x0400_0000-0x0400_00FF, one bit per pin unless noted</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="map">
+        <thead><tr><th>Offset</th><th>Name</th><th></th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="reg">0x00</td><td class="field">CONFIG</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Bit 0 = global interrupt enable (see Interrupts below); bits 15:1 = debounce threshold in clock cycles, 0 = disabled (see Debounce below); otherwise general-purpose.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x04</td><td class="field">DDR</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Data direction, per pin: 1 = output, 0 = input.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x08</td><td class="field">PULL_SEL</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Pull resistor select, per pin: 1 = pull-up, 0 = pull-down. Only meaningful combined with PULL_EN.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x0C</td><td class="field">PULL_EN</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Pull resistor enable, per pin: 1 = the pull configured by PULL_SEL is active, 0 = floating.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x10</td><td class="field">OUT</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Output level, per pin. Drives the pin only while DDR = 1; no effect on an input pin.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x14</td><td class="field">IN</td><td><span class="rw rw-ro">RO</span></td>
+            <td class="desc">Actual resolved level of every pin, regardless of DDR - readable even while driving OUT, to read back what's on the pad. Normalized via <code>to_x01</code> (see below). Writes ignored.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x18</td><td class="field">INT_CONFIG</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Per-pin interrupt enable: 1 = this pin's edges reach INT_STATUS, 0 = ignored.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x1C</td><td class="field">INT_STATUS</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">Sticky per-pin edge flag. Write a bit to 0 to clear it - writing acts as a plain register write, not write-1-to-clear, so clearing one pin without disturbing others needs a read-modify-write (see Notes).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Pin Driver</h2>
+      <span class="section-sub">gen_pins, one instance per bit of gpio_port</span>
+    </div>
+    <p class="lead">
+      Each pin is one concurrent conditional assignment, driving exactly one of four
+      outcomes onto the <code>inout</code> pad:
+    </p>
+
+    <div class="drv">
+      <div class="drv-card">
+        <span class="drv-cond">DDR(i) = 1</span>
+        <span class="drv-val strong">OUT(i)</span>
+        <span class="drv-desc">Strong drive, output mode. Overrides any pull on the same pin (and any weaker external signal).</span>
+      </div>
+      <div class="drv-card">
+        <span class="drv-cond">PULL_EN(i)=1, PULL_SEL(i)=1</span>
+        <span class="drv-val h">'H'</span>
+        <span class="drv-desc">Weak pull-up. A real external driver on the same pin wins - this is genuinely weak, not a second strong driver.</span>
+      </div>
+      <div class="drv-card">
+        <span class="drv-cond">PULL_EN(i)=1, PULL_SEL(i)=0</span>
+        <span class="drv-val l">'L'</span>
+        <span class="drv-desc">Weak pull-down. Same weak-vs-strong resolution as pull-up.</span>
+      </div>
+      <div class="drv-card">
+        <span class="drv-cond">otherwise</span>
+        <span class="drv-val z">'Z'</span>
+        <span class="drv-desc">Floating input, no pull. Left entirely to whatever (if anything) is externally driving the pad.</span>
+      </div>
+    </div>
+
+    <p class="lead">
+      Reading a floating, undriven pin back through <span class="ref">IN</span> or through the interrupt
+      logic's own sampling both go through <span class="ref">to_x01</span>: <code>'H'</code>/<code>'L'</code>
+      normalize to a clean <code>'1'</code>/<code>'0'</code>, but a genuinely undriven
+      <code>'Z'</code> normalizes to <code>'X'</code> - which never equals
+      <code>'1'</code> in any of the comparisons below, so a floating pin can never spuriously
+      report an edge or a level on its own.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Debounce</h2>
+      <span class="section-sub">CONFIG bits 15:1, applies to the whole port at once</span>
+    </div>
+    <p class="lead">
+      A per-pin counter (<span class="ref">debounce_cnt</span>) counts consecutive cycles the raw pad
+      disagrees with that pin's current <span class="ref">gpio_debounced</span> value. The value only
+      updates once the counter reaches the threshold in <span class="ref">CONFIG</span> bits 15:1 -
+      any disagreement shorter than that gets reset back to zero the moment the raw level
+      agrees again, rejecting the glitch entirely.
+    </p>
+
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead><tr><th>cycle (threshold=3)</th><th>c0</th><th>c1</th><th>c2</th><th>c3</th><th>c4</th></tr></thead>
+        <tbody>
+          <tr><th>raw pad</th><td><span class="cell-tag tag-hi">1</span></td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+          <tr><th>debounce_cnt</th><td>0</td><td>1</td><td>2</td><td><span class="cell-tag tag-hold">3</span></td><td>0</td></tr>
+          <tr><th>gpio_debounced</th><td>0</td><td>0</td><td>0</td><td>0</td><td><span class="cell-tag tag-ok">1</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead">
+      The counter has to <em>reach</em> the threshold, which takes one more cycle than
+      the threshold itself: four disagreeing samples (<span class="cyc">c0</span>-<span class="cyc">c3</span>) before
+      <span class="ref">gpio_debounced</span> flips, visible at <span class="cyc">c4</span>. A glitch that reverts before the
+      counter gets there resets it to zero immediately, with <span class="ref">gpio_debounced</span>
+      never moving at all.
+    </p>
+    <p class="lead">
+      Threshold 0 (the reset default) bypasses the filter entirely -
+      <span class="ref">gpio_filtered</span> falls straight through to the raw, zero-latency pad
+      reading, and interrupt behavior is identical to before this feature existed. The
+      filter only ever affects the interrupt-detection path below, never the
+      <span class="ref">IN</span> register - a plain digital read stays immediate.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Interrupts</h2>
+      <span class="section-sub">any-edge, per-pin + global gating, sticky status</span>
+    </div>
+    <p class="lead">
+      Every cycle, <span class="ref">gpio_port_prev</span> samples <span class="ref">gpio_filtered</span>
+      unconditionally (the debounced value when the filter's active, the raw pad
+      otherwise - see Debounce above). A pin's current value XOR'd against that
+      one-cycle-old sample is <code>'1'</code> for exactly one cycle right after a real
+      transition - that's the only source of "did this pin just change".
+    </p>
+
+    <div class="timing-wrap">
+      <table class="timing">
+        <thead><tr><th>cycle</th><th>c0</th><th>c1</th><th>c2</th></tr></thead>
+        <tbody>
+          <tr><th>gpio_filtered(i)</th><td><span class="cell-tag tag-hi">1</span></td><td><span class="cell-tag tag-hold">1</span></td><td>1</td></tr>
+          <tr><th>gpio_port_prev(i)</th><td>0</td><td><span class="cell-tag tag-ok">1</span></td><td>1</td></tr>
+          <tr><th>edge (xor)</th><td><span class="cell-tag tag-hi">1</span></td><td>0</td><td>0</td></tr>
+          <tr><th>INT_STATUS(i)</th><td>0</td><td><span class="cell-tag tag-ok">1</span></td><td>1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lead">
+      The pin actually changes during <span class="cyc">c0</span>; the edge is detected (and, if enabled,
+      latched into <span class="ref">INT_STATUS</span>) one clock edge later, at the start of
+      <span class="cyc">c1</span> - then holds through <span class="cyc">c2</span> and beyond until software
+      clears it, since the process only ever <em>sets</em> a bit on a true edge and otherwise
+      leaves it exactly as it was.
+    </p>
+
+    <p class="lead">
+      A bit only reaches <span class="ref">INT_STATUS</span> when three things are all true the cycle the
+      edge is seen: the per-pin <span class="ref">INT_CONFIG(i)</span> bit, the global
+      <span class="ref">CONFIG</span> bit 0, and the edge itself. <span class="ref">irq_o</span> is simply
+      "<span class="ref">INT_STATUS</span> is nonzero" - a single OR-reduction, so it stays high for
+      as long as any pin's flag is still set.
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Software API</h2>
+      <span class="section-sub">sw/lib/tinymcu_gpio.h</span>
+    </div>
+    <div class="table-wrap">
+      <table class="api">
+        <thead><tr><th>Function</th><th>Description</th><th>Register effect</th></tr></thead>
+        <tbody>
+          <tr class="api-group"><td colspan="3">Direction &amp; pull</td></tr>
+          <tr><td class="fn">tinymcu_gpio_set_output(pin)</td><td class="desc">Configure a pin as an output.</td><td class="eff">DDR(pin) = 1</td></tr>
+          <tr><td class="fn">tinymcu_gpio_set_input(pin)</td><td class="desc">Configure a pin as an input.</td><td class="eff">DDR(pin) = 0</td></tr>
+          <tr><td class="fn">tinymcu_gpio_pull_up(pin)</td><td class="desc">Enable a pin's pull-up resistor. Only meaningful while the pin is an input.</td><td class="eff">PULL_SEL(pin) = 1, PULL_EN(pin) = 1</td></tr>
+          <tr><td class="fn">tinymcu_gpio_pull_down(pin)</td><td class="desc">Enable a pin's pull-down resistor. Only meaningful while the pin is an input.</td><td class="eff">PULL_SEL(pin) = 0, PULL_EN(pin) = 1</td></tr>
+          <tr><td class="fn">tinymcu_gpio_pull_disable(pin)</td><td class="desc">Disable a pin's pull resistor, leaving it floating.</td><td class="eff">PULL_EN(pin) = 0</td></tr>
+
+          <tr class="api-group"><td colspan="3">Output</td></tr>
+          <tr><td class="fn">tinymcu_gpio_set(pin)</td><td class="desc">Drive a pin high. No effect unless configured as an output.</td><td class="eff">OUT(pin) = 1</td></tr>
+          <tr><td class="fn">tinymcu_gpio_clear(pin)</td><td class="desc">Drive a pin low. No effect unless configured as an output.</td><td class="eff">OUT(pin) = 0</td></tr>
+          <tr><td class="fn">tinymcu_gpio_toggle(pin)</td><td class="desc">Invert a pin's current output level. No effect unless configured as an output.</td><td class="eff">OUT(pin) ^= 1</td></tr>
+          <tr><td class="fn">tinymcu_gpio_write(pin, level)</td><td class="desc">Drive a pin to a specific level (nonzero = high, zero = low).</td><td class="eff">set() or clear(), by level</td></tr>
+
+          <tr class="api-group"><td colspan="3">Input</td></tr>
+          <tr><td class="fn">tinymcu_gpio_get(pin)</td><td class="desc">Read a single pin's actual level. Reads IN, not OUT - reflects the real level regardless of direction.</td><td class="eff">single bit of IN</td></tr>
+          <tr><td class="fn">tinymcu_gpio_read_port(void)</td><td class="desc">Read every pin's actual level at once.</td><td class="eff">whole IN register</td></tr>
+
+          <tr class="api-group"><td colspan="3">Interrupts</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_global_enable(void)</td><td class="desc">Set CONFIG's master interrupt enable. Has no effect on its own unless the relevant pin is also enabled.</td><td class="eff">CONFIG bit 0 = 1 (via |=, see Notes)</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_global_disable(void)</td><td class="desc">Clear CONFIG's master interrupt enable, suppressing every pin's interrupt regardless of its own INT_CONFIG bit.</td><td class="eff">CONFIG bit 0 = 0 (via &amp;=)</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_enable(pin)</td><td class="desc">Enable a pin's interrupt, firing on either edge. Has no effect on its own without also enabling the global switch and the CPU's IRQ line.</td><td class="eff">INT_CONFIG(pin) = 1</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_disable(pin)</td><td class="desc">Disable a pin's interrupt. Does not clear an already-pending flag.</td><td class="eff">INT_CONFIG(pin) = 0</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_pending(pin)</td><td class="desc">Check whether a specific pin's interrupt flag is currently set.</td><td class="eff">single bit of INT_STATUS</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_status(void)</td><td class="desc">Read every pin's interrupt flag at once, e.g. to find out which pin(s) fired from inside an ISR without polling each one individually.</td><td class="eff">whole INT_STATUS register</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_clear(pin)</td><td class="desc">Clear a single pin's interrupt flag, leaving every other pin's flag untouched. Must be called from the ISR before returning (MRET).</td><td class="eff">read-modify-write, only this pin</td></tr>
+          <tr><td class="fn">tinymcu_gpio_irq_clear_all(void)</td><td class="desc">Clear every pin's interrupt flag at once.</td><td class="eff">INT_STATUS = 0</td></tr>
+
+          <tr class="api-group"><td colspan="3">Debounce</td></tr>
+          <tr><td class="fn">tinymcu_gpio_debounce_set(cycles)</td><td class="desc">Set the global debounce threshold. A pin's edge only reaches the interrupt logic once the raw pad has held the new level for this many consecutive cycles. Applies to every pin at once.</td><td class="eff">CONFIG bits 15:1 = cycles (read-modify-write)</td></tr>
+          <tr><td class="fn">tinymcu_gpio_debounce_disable(void)</td><td class="desc">Disable the debounce filter. Every pin's raw level reaches the interrupt logic immediately again.</td><td class="eff">CONFIG bits 15:1 = 0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Notes</h2>
+    </div>
+    <div class="notes-grid">
+      <div class="note">
+        <div class="note-head">INT_STATUS needs a read-modify-write to clear selectively</div>
+        <p>
+          The hardware doesn't implement write-1-to-clear: whatever bit pattern gets written
+          becomes the register's new content, full stop. Clearing exactly one pin's flag while
+          leaving others set means read-AND-write from software, not a plain store -
+          exactly what <span class="ref">tinymcu_gpio_irq_clear()</span> does.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">CONFIG is otherwise general-purpose</div>
+        <p>
+          Only bits 15:0 have a defined meaning (bit 0, bits 15:1). The driver only ever
+          touches those bits with <code>|=</code>/<code>&amp;=</code> or a mask, never a
+          plain assignment, so it doesn't clobber whatever else software might be storing
+          in bits 31:16.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">Both enables gate every pin the same way</div>
+        <p>
+          There's no way to leave the global switch off for some pins and on for others -
+          <span class="ref">CONFIG</span> bit 0 is a single master enable across the whole port, on top of
+          each pin's own <span class="ref">INT_CONFIG</span> bit.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">One cycle of detection latency</div>
+        <p>
+          Every edge costs exactly one clock cycle between the physical transition and
+          <span class="ref">INT_STATUS</span> updating - see the Interrupts timing table above.
+          <span class="ref">irq_o</span> itself is purely combinational from <span class="ref">INT_STATUS</span>, so it
+          tracks that same one-cycle latency, nothing more.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">rtl/peripherals/tinymcu_periph_gpio.vhd &middot; sw/lib/tinymcu_gpio.h &middot; sim/peripherals/tinymcu_tb_gpio.vhd</span>
+  </footer>
+
+</main>
+
+</body>
+</html>

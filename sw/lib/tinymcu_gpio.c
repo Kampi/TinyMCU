@@ -56,3 +56,44 @@ unsigned int tinymcu_gpio_get(unsigned int pin) {
 unsigned int tinymcu_gpio_read_port(void) {
     return TINYMCU_GPIO->IN;
 }
+
+void tinymcu_gpio_irq_global_enable(void) {
+    TINYMCU_GPIO->CONFIG |= TINYMCU_GPIO_CONFIG_GLOBAL_INT_EN;
+}
+
+void tinymcu_gpio_irq_global_disable(void) {
+    TINYMCU_GPIO->CONFIG &= ~TINYMCU_GPIO_CONFIG_GLOBAL_INT_EN;
+}
+
+void tinymcu_gpio_irq_enable(unsigned int pin) {
+    TINYMCU_GPIO->INT_CONFIG |= (1u << pin);
+}
+
+void tinymcu_gpio_irq_disable(unsigned int pin) {
+    TINYMCU_GPIO->INT_CONFIG &= ~(1u << pin);
+}
+
+unsigned int tinymcu_gpio_irq_pending(unsigned int pin) {
+    return (TINYMCU_GPIO->INT_STATUS >> pin) & 1u;
+}
+
+unsigned int tinymcu_gpio_irq_status(void) {
+    return TINYMCU_GPIO->INT_STATUS;
+}
+
+void tinymcu_gpio_irq_clear(unsigned int pin) {
+    TINYMCU_GPIO->INT_STATUS &= ~(1u << pin);
+}
+
+void tinymcu_gpio_irq_clear_all(void) {
+    TINYMCU_GPIO->INT_STATUS = 0;
+}
+
+void tinymcu_gpio_debounce_set(unsigned int cycles) {
+    TINYMCU_GPIO->CONFIG = (TINYMCU_GPIO->CONFIG & ~TINYMCU_GPIO_CONFIG_DEBOUNCE_MASK)
+                          | ((cycles << TINYMCU_GPIO_CONFIG_DEBOUNCE_LSB) & TINYMCU_GPIO_CONFIG_DEBOUNCE_MASK);
+}
+
+void tinymcu_gpio_debounce_disable(void) {
+    tinymcu_gpio_debounce_set(0);
+}

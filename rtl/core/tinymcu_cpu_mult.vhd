@@ -46,7 +46,7 @@ end entity tinymcu_cpu_mult;
 
 architecture tinymcu_cpu_mult_rtl of tinymcu_cpu_mult is
 
-    type Mult_State is (Idle, Calc);
+    type Mult_State_t is (Idle, Calc);
 
     signal op_a             : word_t;
     signal start            : std_ulogic;
@@ -55,7 +55,7 @@ architecture tinymcu_cpu_mult_rtl of tinymcu_cpu_mult is
     signal neg_result       : std_ulogic;
     signal high_sel         : std_ulogic;
 
-    signal current_state    : Mult_State := Idle;
+    signal current_state    : Mult_State_t := Idle;
 
 begin
 
