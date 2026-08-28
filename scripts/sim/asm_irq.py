@@ -36,6 +36,7 @@ import argparse
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.riscv_isa import ADDI, LUI, CSRRW, JAL, MRET, CSR_MSTATUS, CSR_MIE, CSR_MTVEC
 from lib.rom_writer import DEFAULT_VHDL_FILE, generate_program_block, splice_vhdl
 

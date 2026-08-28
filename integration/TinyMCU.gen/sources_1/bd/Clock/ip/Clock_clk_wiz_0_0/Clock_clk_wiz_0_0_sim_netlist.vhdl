@@ -2,7 +2,7 @@
 -- Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 -- --------------------------------------------------------------------------------
 -- Tool Version: Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
--- Date        : Sat Aug 22 20:36:21 2026
+-- Date        : Fri Aug 28 17:54:22 2026
 -- Host        : daniel running 64-bit Ubuntu 22.04.5 LTS
 -- Command     : write_vhdl -force -mode funcsim
 --               /home/daniel/Projects/CPU/integration/TinyMCU.gen/sources_1/bd/Clock/ip/Clock_clk_wiz_0_0/Clock_clk_wiz_0_0_sim_netlist.vhdl
@@ -17,22 +17,24 @@ library UNISIM;
 use UNISIM.VCOMPONENTS.ALL;
 entity Clock_clk_wiz_0_0_clk_wiz is
   port (
-    clk_out1 : out STD_LOGIC;
+    MCU : out STD_LOGIC;
+    ILA : out STD_LOGIC;
     reset : in STD_LOGIC;
+    locked : out STD_LOGIC;
     clk_in1 : in STD_LOGIC
   );
 end Clock_clk_wiz_0_0_clk_wiz;
 
 architecture STRUCTURE of Clock_clk_wiz_0_0_clk_wiz is
+  signal ILA_Clock_clk_wiz_0_0 : STD_LOGIC;
+  signal MCU_Clock_clk_wiz_0_0 : STD_LOGIC;
   signal clk_in1_Clock_clk_wiz_0_0 : STD_LOGIC;
-  signal clk_out1_Clock_clk_wiz_0_0 : STD_LOGIC;
   signal clkfbout_Clock_clk_wiz_0_0 : STD_LOGIC;
   signal clkfbout_buf_Clock_clk_wiz_0_0 : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKFBOUTB_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKFBSTOPPED_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED : STD_LOGIC;
-  signal NLW_mmcm_adv_inst_CLKOUT1_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKOUT2_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKOUT2B_UNCONNECTED : STD_LOGIC;
@@ -42,7 +44,6 @@ architecture STRUCTURE of Clock_clk_wiz_0_0_clk_wiz is
   signal NLW_mmcm_adv_inst_CLKOUT5_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_CLKOUT6_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_DRDY_UNCONNECTED : STD_LOGIC;
-  signal NLW_mmcm_adv_inst_LOCKED_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_PSDONE_UNCONNECTED : STD_LOGIC;
   signal NLW_mmcm_adv_inst_DO_UNCONNECTED : STD_LOGIC_VECTOR ( 15 downto 0 );
   attribute BOX_TYPE : string;
@@ -55,6 +56,7 @@ architecture STRUCTURE of Clock_clk_wiz_0_0_clk_wiz is
   attribute IFD_DELAY_VALUE : string;
   attribute IFD_DELAY_VALUE of clkin1_ibufg : label is "AUTO";
   attribute BOX_TYPE of clkout1_buf : label is "PRIMITIVE";
+  attribute BOX_TYPE of clkout2_buf : label is "PRIMITIVE";
   attribute BOX_TYPE of mmcm_adv_inst : label is "PRIMITIVE";
 begin
 clkf_buf: unisim.vcomponents.BUFG
@@ -72,8 +74,13 @@ clkin1_ibufg: unisim.vcomponents.IBUF
     );
 clkout1_buf: unisim.vcomponents.BUFG
      port map (
-      I => clk_out1_Clock_clk_wiz_0_0,
-      O => clk_out1
+      I => MCU_Clock_clk_wiz_0_0,
+      O => MCU
+    );
+clkout2_buf: unisim.vcomponents.BUFG
+     port map (
+      I => ILA_Clock_clk_wiz_0_0,
+      O => ILA
     );
 mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
     generic map(
@@ -87,7 +94,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKOUT0_DUTY_CYCLE => 0.500000,
       CLKOUT0_PHASE => 0.000000,
       CLKOUT0_USE_FINE_PS => false,
-      CLKOUT1_DIVIDE => 1,
+      CLKOUT1_DIVIDE => 10,
       CLKOUT1_DUTY_CYCLE => 0.500000,
       CLKOUT1_PHASE => 0.000000,
       CLKOUT1_USE_FINE_PS => false,
@@ -135,9 +142,9 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       CLKIN2 => '0',
       CLKINSEL => '1',
       CLKINSTOPPED => NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED,
-      CLKOUT0 => clk_out1_Clock_clk_wiz_0_0,
+      CLKOUT0 => MCU_Clock_clk_wiz_0_0,
       CLKOUT0B => NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED,
-      CLKOUT1 => NLW_mmcm_adv_inst_CLKOUT1_UNCONNECTED,
+      CLKOUT1 => ILA_Clock_clk_wiz_0_0,
       CLKOUT1B => NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED,
       CLKOUT2 => NLW_mmcm_adv_inst_CLKOUT2_UNCONNECTED,
       CLKOUT2B => NLW_mmcm_adv_inst_CLKOUT2B_UNCONNECTED,
@@ -153,7 +160,7 @@ mmcm_adv_inst: unisim.vcomponents.MMCME2_ADV
       DO(15 downto 0) => NLW_mmcm_adv_inst_DO_UNCONNECTED(15 downto 0),
       DRDY => NLW_mmcm_adv_inst_DRDY_UNCONNECTED,
       DWE => '0',
-      LOCKED => NLW_mmcm_adv_inst_LOCKED_UNCONNECTED,
+      LOCKED => locked,
       PSCLK => '0',
       PSDONE => NLW_mmcm_adv_inst_PSDONE_UNCONNECTED,
       PSEN => '0',
@@ -168,8 +175,10 @@ library UNISIM;
 use UNISIM.VCOMPONENTS.ALL;
 entity Clock_clk_wiz_0_0 is
   port (
-    clk_out1 : out STD_LOGIC;
+    MCU : out STD_LOGIC;
+    ILA : out STD_LOGIC;
     reset : in STD_LOGIC;
+    locked : out STD_LOGIC;
     clk_in1 : in STD_LOGIC
   );
   attribute NotValidForBitStream : boolean;
@@ -180,8 +189,10 @@ architecture STRUCTURE of Clock_clk_wiz_0_0 is
 begin
 inst: entity work.Clock_clk_wiz_0_0_clk_wiz
      port map (
+      ILA => ILA,
+      MCU => MCU,
       clk_in1 => clk_in1,
-      clk_out1 => clk_out1,
+      locked => locked,
       reset => reset
     );
 end STRUCTURE;

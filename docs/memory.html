@@ -42,6 +42,7 @@
   .seg:last-child { border-right: none; }
   .seg.rom  { background: var(--accent-2); flex-grow: 6; }
   .seg.ram  { background: var(--accent); flex-grow: 6; }
+  .seg.ramdisk { background: var(--accent-4); flex-grow: 6; }
   .seg.periph { background: var(--accent-3); flex-grow: 6; }
 
   .strip-labels {
@@ -53,53 +54,14 @@
     margin-top: 6px;
   }
 
-  .strip-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-top: 14px;
-    font-size: 12.5px;
-    color: var(--ink-dim);
-  }
-  .strip-legend span { display: inline-flex; align-items: center; gap: 7px; }
-  .strip-legend .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-
-  /* ---------- Region cards ---------- */
-  .region {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-    padding: 16px 18px 18px;
-  }
-
-  .region-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
-  }
-
-  .region-range {
-    font-family: "IBM Plex Mono", monospace;
-    font-weight: 600;
-    font-size: 14px;
-  }
-  .region-range.rom { color: var(--accent-2-ink); }
-  .region-range.ram { color: var(--accent-ink); }
-  .region-range.periph { color: var(--accent-3-ink); }
-
-  .region-size {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: 12px;
-    color: var(--ink-faint);
-  }
-
-  .region-note {
-    color: var(--ink-dim);
-    font-size: 13.5px;
-    margin: 6px 0 14px;
+  table.map.legend { margin-top: 14px; font-size: 12.5px; }
+  table.map.legend td { padding: 6px 10px; }
+  table.map.legend td.swatch-cell { width: 1%; }
+  table.map.legend .swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
   }
 
   /* ---------- Tables: page-specific width + the address/range cells,
@@ -187,8 +149,8 @@
   /* ---------- Print: page-specific additions on top of the shared
      print base (docs/tinymcu-docs.css) ---------- */
   @media print {
-    .region, .periph-card, .strip-wrap { box-shadow: none; }
-    .region, .periph-card { break-inside: avoid; }
+    .periph-card, .strip-wrap { box-shadow: none; }
+    .periph-card { break-inside: avoid; }
   }
 </style>
 </head>
@@ -200,7 +162,7 @@
     <h1>Memory Layout</h1>
     <p>
       Every bus target is selected by a single top-byte compare (<code>addr[31:24]</code>),
-      so the address space is really just 256 possible 16&nbsp;MB windows - only three
+      so the address space is really just 256 possible 16&nbsp;MB windows - only four
       are wired up. Nothing below that top byte is range-checked against the region's real
       size, so a region smaller than its window mirrors throughout the rest of it (see the
       SRAM note below).
@@ -213,7 +175,7 @@
       <span class="section-sub">addr[31:24], tinymcu_addr_decoder.vhd</span>
     </div>
     <p class="lead">
-      256 possible top-byte values, 3 actually decoded. Every unlabeled segment reads back
+      256 possible top-byte values, 4 actually decoded. Every unlabeled segment reads back
       as <span class="ref">0</span> and acks immediately - there is no bus fault, no stall.
     </p>
 
@@ -221,12 +183,35 @@
       <p class="strip-caption">One segment per top-byte value (0x00-0xFF), left to right</p>
       <div id="strip"></div>
       <div class="strip-labels"><span>0x00</span><span>0x40</span><span>0x80</span><span>0xC0</span><span>0xFF</span></div>
-      <div class="strip-legend">
-        <span><span class="swatch" style="background:var(--accent-2);"></span>0x00 - ROM / Flash</span>
-        <span><span class="swatch" style="background:var(--accent);"></span>0x02 - RAM</span>
-        <span><span class="swatch" style="background:var(--accent-3);"></span>0x04 - Peripherals</span>
-        <span><span class="swatch" style="background:var(--surface-3); border:1px solid var(--line);"></span>everything else - unmapped</span>
-      </div>
+      <table class="map legend">
+        <tbody>
+          <tr>
+            <td class="swatch-cell"><span class="swatch" style="background:var(--accent-2);"></span></td>
+            <td class="addr">0x00</td>
+            <td class="desc">ROM / Flash</td>
+          </tr>
+          <tr>
+            <td class="swatch-cell"><span class="swatch" style="background:var(--accent);"></span></td>
+            <td class="addr">0x02</td>
+            <td class="desc">RAM (kernel/TPA)</td>
+          </tr>
+          <tr>
+            <td class="swatch-cell"><span class="swatch" style="background:var(--accent-4);"></span></td>
+            <td class="addr">0x03</td>
+            <td class="desc">RAM Disk (sw/cpm-neo/ only)</td>
+          </tr>
+          <tr>
+            <td class="swatch-cell"><span class="swatch" style="background:var(--accent-3);"></span></td>
+            <td class="addr">0x04</td>
+            <td class="desc">Peripherals</td>
+          </tr>
+          <tr>
+            <td class="swatch-cell"><span class="swatch" style="background:var(--surface-3); border:1px solid var(--line);"></span></td>
+            <td class="addr">everything else</td>
+            <td class="desc">unmapped</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="table-wrap">
@@ -245,7 +230,13 @@
             <td class="addr">0x0200_0000-0x02FF_FFFF</td>
             <td class="addr">16 MB</td>
             <td class="desc"><code>ram_req_o</code></td>
-            <td class="desc">SRAM, 4 KB physical - mirrors across the rest of the window</td>
+            <td class="desc">Kernel/TPA SRAM, 64 KB physical - mirrors across the rest of the window</td>
+          </tr>
+          <tr>
+            <td class="addr">0x0300_0000-0x03FF_FFFF</td>
+            <td class="addr">16 MB</td>
+            <td class="desc"><code>ramdisk_req_o</code></td>
+            <td class="desc">RAM Disk, 128 KB physical - only mapped when <span class="ref">RAMDISK_ENABLE</span> is true, otherwise unmapped like any other segment</td>
           </tr>
           <tr>
             <td class="addr">0x0400_0000-0x04FF_FFFF</td>
@@ -270,54 +261,72 @@
       <span class="section-sub">rtl/core/tinymcu_imem.vhd</span>
     </div>
 
-    <div class="region">
-      <div class="region-head">
-        <span class="region-range rom">0x0000_0000-0x0000_7FFF</span>
-        <span class="region-size">32 KB</span>
-        <span class="tag real">real</span>
-      </div>
-      <p class="region-note">
-        Boot ROM. <span class="ref">tinymcu_imem_bootrom.vhd</span>, sized by
-        <span class="ref">IMEM_ADDR_WIDTH</span> (default 13 &rarr; 2<sup>13</sup> words).
-        Synchronous read, BRAM-inferable - one cycle of latency on both the fetch and
-        data-side port (see the pipeline doc's IF stage). Holds whatever
-        <span class="ref">scripts/hex2rom.py</span> last wrote into it.
-      </p>
-    </div>
-
-    <div class="region">
-      <div class="region-head">
-        <span class="region-range rom">0x0000_8000-0x00FF_FFFF</span>
-        <span class="region-size">&asymp; 16&nbsp;MB &minus; 32&nbsp;KB</span>
-        <span class="tag reserved">reserved</span>
-      </div>
-      <p class="region-note">
-        Flash + XIP. Reserved in <span class="ref">tinymcu_pkg.vhd</span>
-        (<span class="ref">FLASH_BASE</span>/<span class="ref">FLASH_END</span>) and in
-        <span class="ref">sw/linker.ld</span>'s <span class="ref">FLASH</span> output region,
-        but <span class="ref">tinymcu_imem.vhd</span> only ever instantiates the Boot ROM -
-        reads up here currently return <span class="ref">0</span>.
-      </p>
+    <div class="table-wrap">
+      <table class="map">
+        <thead>
+          <tr><th>Range</th><th>Size</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="addr">0x0000_0000-0x0000_7FFF</td>
+            <td class="addr">32 KB</td>
+            <td class="desc"><span class="tag real">real</span></td>
+            <td class="desc">
+              Boot ROM. <span class="ref">tinymcu_imem_bootrom.vhd</span>, sized by
+              <span class="ref">IMEM_ADDR_WIDTH</span> (default 13 &rarr; 2<sup>13</sup> words).
+              Synchronous read, BRAM-inferable - one cycle of latency on both the fetch and
+              data-side port (see the pipeline doc's IF stage). Holds whatever
+              <span class="ref">scripts/hex2rom.py</span> last wrote into it.
+            </td>
+          </tr>
+          <tr>
+            <td class="addr">0x0000_8000-0x00FF_FFFF</td>
+            <td class="addr">&asymp; 16&nbsp;MB &minus; 32&nbsp;KB</td>
+            <td class="desc"><span class="tag reserved">reserved</span></td>
+            <td class="desc">
+              Flash + XIP. Reserved in <span class="ref">tinymcu_pkg.vhd</span>
+              (<span class="ref">FLASH_BASE</span>/<span class="ref">FLASH_END</span>) and in
+              <span class="ref">sw/linker.ld</span>'s <span class="ref">FLASH</span> output
+              region, but <span class="ref">tinymcu_imem.vhd</span> only ever instantiates the
+              Boot ROM - reads up here currently return <span class="ref">0</span>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
   <section>
     <div class="section-head">
-      <h2>SRAM</h2>
-      <span class="section-sub">rtl/core/tinymcu_sram.vhd, tinymcu_sram_generic.vhd</span>
+      <h2>Kernel/TPA SRAM</h2>
+      <span class="section-sub">rtl/core/tinymcu_sram.vhd (tinymcu_ram_subsystem), tinymcu_sram_generic.vhd</span>
     </div>
 
-    <div class="region">
-      <div class="region-head">
-        <span class="region-range ram">0x0200_0000-0x0200_0FFF</span>
-        <span class="region-size">4 KB physical</span>
-        <span class="tag real">real</span>
-      </div>
-      <p class="region-note">
-        <span class="ref">RAM_ADDR_WIDTH</span> default 10 &rarr; 2<sup>10</sup> words,
-        word-addressed (<span class="ref">addr_i =&nbsp;req_i.addr(ADDR_WIDTH+1 downto 2)</span>).
-        Synchronous read, same BRAM-style one-cycle latency as the Boot ROM.
-      </p>
+    <div class="table-wrap">
+      <table class="map">
+        <thead>
+          <tr><th>Range</th><th>Size</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="addr">0x0200_0000-0x0200_FFFF</td>
+            <td class="addr">64 KB physical</td>
+            <td class="desc"><span class="tag real">real</span></td>
+            <td class="desc">
+              <span class="ref">RAM_ADDR_WIDTH</span> default 14 &rarr; 2<sup>14</sup> words,
+              word-addressed (<span class="ref">addr_i =&nbsp;req_i.addr(ADDR_WIDTH+1 downto 2)</span>).
+              Synchronous read, same BRAM-style one-cycle latency as the Boot ROM. Both a data
+              port (loads/stores) and an independent fetch port - real RISC-V cores execute out
+              of RAM as a matter of course, an OS kernel loaded here by its own bootloader and
+              run directly from here is the normal case, not a special one; see the Pipeline
+              doc's IF stage. A second instance of the exact same
+              <span class="ref">tinymcu_sram.vhd</span> block, both wrapped together by
+              <span class="ref">tinymcu_ram_subsystem</span>, backs the RAM Disk below, at its
+              own <span class="ref">RAMDISK_ADDR_WIDTH</span>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="note">
@@ -325,9 +334,9 @@
       <p>
         <span class="ref">tinymcu_sram_generic.vhd</span> only ever looks at the low
         <span class="ref">ADDR_WIDTH</span> address bits - nothing above that is
-        checked. The 4 KB array therefore repeats every 4 KB across the entire
+        checked. The 64 KB array therefore repeats every 64 KB across the entire
         16&nbsp;MB <span class="ref">0x0200_0000</span> window; e.g.
-        <span class="ref">0x0200_1000</span> aliases <span class="ref">0x0200_0000</span>.
+        <span class="ref">0x0201_0000</span> aliases <span class="ref">0x0200_0000</span>.
       </p>
     </div>
 
@@ -336,8 +345,74 @@
       <p>
         <span class="ref">sw/linker.ld</span> only carves out <span class="ref">1 KB</span>
         for its <span class="ref">RAM</span> output section (<span class="ref">_stack_top</span>
-        sits at <span class="ref">0x0200_0400</span>), well short of the full 4&nbsp;KB the
-        hardware actually provides - headroom, not a hardware limit.
+        sits at <span class="ref">0x0200_0400</span>), well short of the full 64&nbsp;KB the
+        hardware actually provides - headroom for the small <span class="ref">sw/*</span>
+        test programs, not a hardware limit. CP/M Neo (<span class="ref">sw/cpm-neo/</span>)
+        uses the entire block for its kernel + TPA (Transient Program Area, where the CCP and
+        <span class="ref">.COM</span> programs run) - it does not touch <span class="ref">sw/linker.ld</span>
+        at all, see the repo README's CP/M Neo section.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>RAM Disk</h2>
+      <span class="section-sub">rtl/core/tinymcu_sram.vhd (tinymcu_ram_subsystem) - gated by RAMDISK_ENABLE</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="map">
+        <thead>
+          <tr><th>Range</th><th>Size</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="addr">0x0300_0000-0x0301_FFFF</td>
+            <td class="addr">128 KB physical</td>
+            <td class="desc"><span class="tag real">real, when enabled</span></td>
+            <td class="desc">
+              A second, independent instance of the same SRAM block as above (both live inside
+              <span class="ref">tinymcu_ram_subsystem</span>, see
+              <span class="ref">tinymcu_sram.vhd</span>), sized by its own
+              <span class="ref">RAMDISK_ADDR_WIDTH</span> (default 15 &rarr; 2<sup>15</sup> words)
+              and decoded at its own top byte (<span class="ref">RAMDISK_TOP_BYTE</span> in
+              <span class="ref">tinymcu_addr_decoder.vhd</span>) instead of sharing the
+              kernel/TPA SRAM's address space. Ordinary general-purpose memory at the hardware
+              level - readable/writable as data and fetchable as code exactly like the
+              kernel/TPA SRAM above, not a special "disk" construct. TinyMCU has no SPI/SD
+              controller yet, so <span class="ref">sw/cpm-neo/platform/tinymcu/bios.c</span>'s
+              <span class="ref">bios_read()</span>/<span class="ref">bios_write()</span> use it
+              to back the CP/M Neo disk image instead - that 512 B-sector "disk" framing is a
+              software convention on top of plain memory, not anything this block or the bus
+              enforce. Content is baked in at synthesis time by
+              <span class="ref">scripts/cpm_neo_ramdisk2rom.py</span>
+              (<span class="ref">rtl/Makefile</span>'s <span class="ref">cpm-neo-ramdisk</span>
+              target).
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <div class="note-head">RAMDISK_ENABLE</div>
+      <p>
+        <span class="ref">tinymcu_cpu.vhd</span>'s <span class="ref">RAMDISK_ENABLE</span>
+        generic (default <span class="ref">true</span>) is threaded through three places at
+        once: <span class="ref">tinymcu_sram.vhd</span>'s <span class="ref">ENABLE</span>
+        generic (when false, no SRAM array, no BRAM for this block at all, not merely an empty
+        one), <span class="ref">tinymcu_addr_decoder.vhd</span>'s top-byte compare for
+        <span class="ref">0x03</span> on the data bus, and
+        <span class="ref">tinymcu_imem.vhd</span>'s fetch-side arbiter (see the Pipeline doc's IF
+        stage) - so a disabled RAM disk is unreachable for both data <em>and</em> instruction
+        fetch, not just one. When disabled, <span class="ref">0x0300_0000-0x03FF_FFFF</span>
+        behaves exactly like any other unmapped address: reads <span class="ref">0</span>, acks
+        the same cycle, and the CPU can never end up executing there even if PC somehow pointed
+        at it. Classic (non-cpm-neo) builds disable it
+        (<span class="ref">rtl/Makefile</span>'s <span class="ref">disable-ramdisk</span>
+        target, which runs automatically before every <span class="ref">sw/*</span> test
+        program build) - those only ever need to execute out of the Boot ROM.
       </p>
     </div>
   </section>
@@ -404,7 +479,7 @@
   </section>
 
   <footer>
-    <span class="mono">rtl/tinymcu_pkg.vhd &middot; rtl/core/tinymcu_addr_decoder.vhd &middot; rtl/peripherals/tinymcu_periph.vhd</span>
+    <span class="mono">rtl/tinymcu_pkg.vhd &middot; rtl/core/tinymcu_addr_decoder.vhd &middot; rtl/core/tinymcu_imem.vhd &middot; rtl/core/tinymcu_sram.vhd &middot; rtl/peripherals/tinymcu_periph.vhd</span>
   </footer>
 
 </main>
@@ -417,7 +492,8 @@
     var seg = document.createElement('div');
     seg.className = 'seg';
     if (i === 0x00) { seg.className += ' rom'; seg.title = '0x00 -- ROM / Flash'; }
-    else if (i === 0x02) { seg.className += ' ram'; seg.title = '0x02 -- RAM'; }
+    else if (i === 0x02) { seg.className += ' ram'; seg.title = '0x02 -- RAM (kernel/TPA)'; }
+    else if (i === 0x03) { seg.className += ' ramdisk'; seg.title = '0x03 -- RAM Disk (sw/cpm-neo/ only)'; }
     else if (i === 0x04) { seg.className += ' periph'; seg.title = '0x04 -- Peripherals'; }
     else { seg.title = '0x' + i.toString(16).toUpperCase().padStart(2, '0') + ' -- unmapped'; }
     frag.appendChild(seg);

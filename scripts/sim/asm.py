@@ -54,6 +54,7 @@ import argparse
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lib.riscv_isa import (
     ADDI, ADD, SUB, SW, SB, SH, LW, BEQ, LUI, AUIPC, JAL, JALR,
     CSRRW, CSRRS, CSRRC, CSRRWI,

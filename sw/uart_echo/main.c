@@ -17,7 +17,7 @@
 
 int main (void) {
     tinymcu_uart_init(UART_CLKS_PER_BIT, TINYMCU_UART_DATABITS_8,
-                       TINYMCU_UART_STOPBITS_1, TINYMCU_UART_PARITY_NONE);
+                      TINYMCU_UART_STOPBITS_1, TINYMCU_UART_PARITY_NONE);
 
     while (1) {
         unsigned int c = tinymcu_uart_getc();

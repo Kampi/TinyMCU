@@ -1,7 +1,7 @@
 {
   "design": {
     "design_info": {
-      "boundary_crc": "0xA9AC305B3A6DD474",
+      "boundary_crc": "0xC55D5053BD78F7A1",
       "device": "xc7z010clg400-1",
       "gen_directory": "../../../../TinyMCU.gen/sources_1/bd/Clock",
       "name": "Clock",
@@ -42,7 +42,7 @@
           }
         }
       },
-      "ClockOut": {
+      "MCU_Clock": {
         "type": "clk",
         "direction": "O",
         "parameters": {
@@ -80,6 +80,35 @@
             "value": "ACTIVE_HIGH"
           }
         }
+      },
+      "Locked": {
+        "direction": "O"
+      },
+      "ILA_Clock": {
+        "type": "clk",
+        "direction": "O",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "/ClockingWizard_clk_out1",
+            "value_src": "ip_prop"
+          },
+          "FREQ_HZ": {
+            "value": "100000000",
+            "value_src": "ip_prop"
+          },
+          "FREQ_TOLERANCE_HZ": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.0",
+            "value_src": "ip_prop"
+          }
+        }
       }
     },
     "components": {
@@ -102,6 +131,21 @@
           "CLKOUT1_REQUESTED_OUT_FREQ": {
             "value": "16"
           },
+          "CLKOUT2_JITTER": {
+            "value": "124.615"
+          },
+          "CLKOUT2_PHASE_ERROR": {
+            "value": "96.948"
+          },
+          "CLKOUT2_USED": {
+            "value": "true"
+          },
+          "CLK_OUT1_PORT": {
+            "value": "MCU"
+          },
+          "CLK_OUT2_PORT": {
+            "value": "ILA"
+          },
           "MMCM_CLKFBOUT_MULT_F": {
             "value": "8.000"
           },
@@ -110,6 +154,12 @@
           },
           "MMCM_CLKOUT0_DIVIDE_F": {
             "value": "62.500"
+          },
+          "MMCM_CLKOUT1_DIVIDE": {
+            "value": "10"
+          },
+          "NUM_OUT_CLKS": {
+            "value": "2"
           },
           "PRIM_IN_FREQ": {
             "value": "125"
@@ -121,7 +171,7 @@
             "value": "ACTIVE_HIGH"
           },
           "USE_LOCKED": {
-            "value": "false"
+            "value": "true"
           },
           "USE_RESET": {
             "value": "true"
@@ -130,10 +180,22 @@
       }
     },
     "nets": {
-      "ClockingWizard_clk_out1": {
+      "ClockingWizard_ILA": {
         "ports": [
-          "ClockingWizard/clk_out1",
-          "ClockOut"
+          "ClockingWizard/ILA",
+          "ILA_Clock"
+        ]
+      },
+      "ClockingWizard_MCU": {
+        "ports": [
+          "ClockingWizard/MCU",
+          "MCU_Clock"
+        ]
+      },
+      "ClockingWizard_locked": {
+        "ports": [
+          "ClockingWizard/locked",
+          "Locked"
         ]
       },
       "Reset_1": {

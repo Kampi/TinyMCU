@@ -13,21 +13,40 @@ PROGRAM_MARKER_END = "-- TINYMCU_PROGRAM_END"
 CHECKS_MARKER_BEGIN = "-- TINYMCU_CHECKS_BEGIN"
 CHECKS_MARKER_END = "-- TINYMCU_CHECKS_END"
 
-# Backwards-compatible aliases (hex2rom.py imports these names).
+DISK_MARKER_BEGIN = "-- TINYMCU_DISK_BEGIN"
+DISK_MARKER_END = "-- TINYMCU_DISK_END"
+
 MARKER_BEGIN = PROGRAM_MARKER_BEGIN
 MARKER_END = PROGRAM_MARKER_END
 
 DEFAULT_VHDL_FILE = Path(__file__).resolve().parent.parent.parent / "rtl" / "core" / "tinymcu_imem_bootrom.vhd"
 DEFAULT_TB_FILE = Path(__file__).resolve().parent.parent.parent / "sim" / "tinymcu_tb_core.vhd"
+DEFAULT_SRAM_VHDL_FILE = Path(__file__).resolve().parent.parent.parent / "rtl" / "core" / "tinymcu_sram_generic.vhd"
+
+# tinymcu_sram_generic.vhd's DISK constant, reset to empty (no cpm-neo RAM
+# disk content). See clear_disk() below.
+EMPTY_DISK_BLOCK = '        constant DISK : tinymcu.tinymcu_pkg.mem_array_t(0 to -1) := (others => (others => \'0\'));'
 
 
-def generate_program_block(words, comments=None):
+def clear_disk(vhdl_file=DEFAULT_SRAM_VHDL_FILE):
+    """Resets tinymcu_sram_generic.vhd's DISK constant (the sw/cpm-neo/
+    RAM disk's baked-in initial content, see cpm_neo_ramdisk2rom.py) back
+    to empty. Whichever program hex2rom.py just wrote into the Boot ROM
+    has nothing to do with whatever cpm-neo disk image happened to be
+    spliced in previously."""
+    splice_vhdl(vhdl_file, EMPTY_DISK_BLOCK, marker_begin=DISK_MARKER_BEGIN, marker_end=DISK_MARKER_END)
+
+
+def generate_program_block(words, comments=None, const_name="PROGRAM", type_name="mem_array_t"):
     """words: list of 32-bit ints, in address order starting at 0.
     comments: optional list of per-word comment strings (same length as
-    words); each defaults to the word's byte address if omitted."""
+    words); each defaults to the word's byte address if omitted.
+    const_name/type_name: override the generated VHDL constant's name and
+    type (e.g. a package-qualified type, for a constant living in a
+    different local mem_array_t scope than the one it's declared with)."""
     n = len(words)
     idx_width = max(len(str(n - 1)), 1)
-    lines = [f"        constant PROGRAM : mem_array_t(0 to {n - 1}) := ("]
+    lines = [f"        constant {const_name} : {type_name}(0 to {n - 1}) := ("]
     for i, w in enumerate(words):
         sep = "," if i < n - 1 else ""
         comment = comments[i] if comments else f"0x{i * 4:04X}"

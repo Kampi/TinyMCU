@@ -1,0 +1,775 @@
+From 58813b5b3909413c4fc378c772c1d24eae922a96 Mon Sep 17 00:00:00 2001
+From: Daniel Kampert <DanielKampert@kampis-elektroecke.de>
+Date: Fri, 28 Aug 2026 07:34:45 +0200
+Subject: [PATCH] Add support for TinyMCU
+
+---
+ Makefile                            |  34 ++++++
+ arch/tinymcu-riscv32/boot.S         | 173 ++++++++++++++++++++++++++++
+ arch/tinymcu-riscv32/config.sh      |  10 ++
+ arch/tinymcu-riscv32/linker_boot.ld |  31 +++++
+ core/kernel/kernel_abi.h            |   9 +-
+ core/kernel/linker_kernel.ld        |  15 ++-
+ platform/tinymcu/bios.c             | 130 +++++++++++++++++++++
+ platform/tinymcu/mmio.h             | 142 +++++++++++++++++++++++
+ platform/tinymcu/platform_base.h    |   6 +
+ sdk/linker/linker_sdk.ld            |  11 +-
+ sdk/src/start.c                     |   2 +-
+ sysgen/build_disk.sh                |  14 +++
+ sysgen/commands.c                   |   5 +-
+ sysgen/main.c                       |   3 +-
+ 14 files changed, 578 insertions(+), 7 deletions(-)
+ create mode 100644 Makefile
+ create mode 100644 arch/tinymcu-riscv32/boot.S
+ create mode 100644 arch/tinymcu-riscv32/config.sh
+ create mode 100644 arch/tinymcu-riscv32/linker_boot.ld
+ create mode 100644 platform/tinymcu/bios.c
+ create mode 100644 platform/tinymcu/mmio.h
+ create mode 100644 platform/tinymcu/platform_base.h
+
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..ae3af19
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,34 @@
++# CP/M Neo — builds sysgen and generates a disk image + bootloader for a
++# given platform/arch.
++#
++# Usage:
++#   make sysgen - build sysgen/build/sysgen (the disk/bootloader generator)
++#   make disk   - build sysgen, then run "sysgen new" with DISK_SIZE/
++#                 MEM_SIZE/PLATFORM/ARCH. Produces sysgen/build/disk.img
++#                 and sysgen/build/core/int/bootloader.elf
++#   make clean  - remove sysgen/build
++#
++
++SYSGEN_DIR := sysgen
++SYSGEN_BIN := $(SYSGEN_DIR)/build/sysgen
++
++DISK_SIZE ?= 128K
++MEM_SIZE  ?= 32K
++PLATFORM  ?= tinymcu
++ARCH      ?= tinymcu-riscv32
++
++.PHONY: sysgen disk clean
++
++sysgen: $(SYSGEN_BIN)
++
++$(SYSGEN_BIN):
++	$(MAKE) -C $(SYSGEN_DIR)
++
++disk: $(SYSGEN_BIN)
++	./$(SYSGEN_BIN) new \
++		--disk-size=$(DISK_SIZE) --mem=$(MEM_SIZE) \
++		--no-sys --no-extra \
++		--platform=$(PLATFORM) --arch=$(ARCH)
++
++clean:
++	rm -rf $(SYSGEN_DIR)/build
+diff --git a/arch/tinymcu-riscv32/boot.S b/arch/tinymcu-riscv32/boot.S
+new file mode 100644
+index 0000000..346cead
+--- /dev/null
++++ b/arch/tinymcu-riscv32/boot.S
+@@ -0,0 +1,173 @@
++/*
++ * bootloader/boot.S
++ * CP/M Neo 32-bit RISV-V Bootloader
++ */
++
++/* S0 (sector-0) field offsets come from core/kernel/s0_layout.h — the single
++ * source of truth shared with the kernel and sysgen. boot.S is compiled via
++ * the C compiler, so the preprocessor substitutes the values below. */
++
++#include "s0_layout.h"
++
++.equ DISK_MAGIC,      0x4350
++.equ BOOT_SIG,        0xAA55
++.equ BOOT_MAGIC,      DISK_MAGIC
++
++.equ SECTOR_SIZE,    512
++
++/* ASCII values */
++.equ CH_0,   0x30
++.equ CH_DOT, 0x2E
++
++.extern bios_read
++.extern bios_conout
++.extern bios_init
++
++.section .boot, "ax"
++.global _boot_start
++.align 2
++
++_boot_start:
++    /* Volatile boot RAM lives as low as possible, right after the boot code:
++     * the 512-byte sector-0 scratch buffer (__boot_scratch) and a 128-byte
++     * stack just above it (__boot_stack_top), both from linker_boot.ld. */
++    la   sp, __boot_stack_top
++    la   s7, __boot_scratch
++
++    /* TinyMCU-specific: unlike vemu's virtual UART, the real UART needs
++     * CONFIG/BAUDRATE configured before bios_conout() can transmit
++     * anything because both reset to 0, and BAUDRATE=0 breaks the Tx state
++     * machine's bit timing entirely (see platform/tinymcu/bios.c's
++     * bios_init()). Call it before the first bios_read()/bios_conout(). */
++    jal  ra, bios_init
++
++    /* Load sector 0 → scratch buffer */
++    li   a0, 0
++    mv   a1, s7
++    jal  ra, bios_read
++    bltz a0, err_disk
++
++    /* Verify 0xAA55 signature */
++    li   t0, S0_SIG
++    add  t0, s7, t0
++    lhu  t0, 0(t0)
++    li   t1, BOOT_SIG
++    bne  t0, t1, err_disk
++
++    /* Print banner ("Loading CP/M Neo ...\n\n") */
++    la   t0, msg_prefix
++    jal  ra, print_str
++
++    /* Print ASCII art */
++    la   t0, msg_art_1
++    jal  ra, print_str
++    la   t0, msg_art_2
++    jal  ra, print_str
++    la   t0, msg_art_3
++    jal  ra, print_str
++    la   t0, msg_art_4
++    jal  ra, print_str
++    la   t0, msg_art_5
++    jal  ra, print_str
++
++    /* Load kernel target address safely (handling 2-byte alignment at 0x006) */
++    lhu  s1, S0_KERN_LOAD(s7)
++    lhu  t0, (S0_KERN_LOAD + 2)(s7)
++    slli t0, t0, 16
++    or   s1, s1, t0            /* s1 = 32-bit load address */
++
++    lhu  s2, S0_KERN_SECTORS(s7)
++    lhu  s6, S0_KERN_LBA(s7)
++    beqz s2, err_disk
++
++    /* Load kernel binary — use saved registers across bios_read calls */
++    mv   s3, s1                /* Target RAM destination */
++    mv   s4, s6                /* Sector LBA */
++    mv   s5, s2                /* Sector count remaining */
++
++.Lload_kern:
++    mv   a0, s4
++    mv   a1, s3
++    jal  ra, bios_read
++    bltz a0, err_disk      /* bios_read: negative return = read failure */
++    addi s3, s3, SECTOR_SIZE
++    addi s4, s4, 1
++    addi s5, s5, -1
++    bnez s5, .Lload_kern
++
++    /* Verify 16-bit kernel magic at end of loaded buffer */
++    slli t0, s2, 9             /* total bytes loaded */
++    add  t0, s1, t0            /* end pointer */
++    lhu  t0, -4(t0)            /* load 16-bit halfword magic */
++    li   t1, BOOT_MAGIC
++    bne  t0, t1, err_kernel
++
++    /* Jump to kernel */
++    jalr zero, s1, 0
++
++/* ── Helper Routines ─────────────────────────────────────── */
++
++print_ver:
++    addi sp, sp, -8
++    sw   ra, 4(sp)
++    sw   s0, 0(sp)
++    mv   s0, t0                /* Preserve version value */
++
++    srli a0, s0, 8
++    andi a0, a0, 0xFF
++    addi a0, a0, CH_0
++    jal  ra, bios_conout
++
++    li   a0, CH_DOT
++    jal  ra, bios_conout
++
++    andi a0, s0, 0xFF
++    addi a0, a0, CH_0
++    jal  ra, bios_conout
++
++    lw   s0, 0(sp)
++    lw   ra, 4(sp)
++    addi sp, sp, 8
++    ret
++
++print_str:
++    addi sp, sp, -8
++    sw   ra, 4(sp)
++    sw   s0, 0(sp)
++    mv   s0, t0                /* Use s0 to hold string pointer */
++
++.Lstr_loop:
++    lbu  a0, 0(s0)
++    beqz a0, .Ldone_str
++    addi s0, s0, 1
++    jal  ra, bios_conout
++    j    .Lstr_loop
++
++.Ldone_str:
++    lw   s0, 0(sp)
++    lw   ra, 4(sp)
++    addi sp, sp, 8
++    ret
++
++/* ── Error paths ─────────────────────────────────────────── */
++err_kernel:
++    la   t0, msg_err_kernel
++    j    .Lhalt
++err_disk:
++    la   t0, msg_err_disk
++.Lhalt:
++    jal  ra, print_str
++.Lspin:
++    j    .Lspin
++
++/* ── Strings ─────────────────────────────────────────────── */
++msg_prefix:     .asciz "Loading CP/M Neo ...\n\n"
++msg_art_1:      .asciz "   ____ ____   ____  __   _   _ _____ ___  \n"
++msg_art_2:      .asciz "  / ___|  _ \\ / /  \\/  | | \\ | | ____/ _ \\ \n"
++msg_art_3:      .asciz " | |   | |_) / /| |\\/| | |  \\| |  _|| | | |\n"
++msg_art_4:      .asciz " | |___|  __/ / | |  | | | |\\  | |__| |_| |\n"
++msg_art_5:      .asciz "  \\____|_| /_/  |_|  |_| |_| \\_|_____\\___/ \n"
++msg_err_disk:   .asciz "  \nDISK ERR\n"
++msg_err_kernel: .asciz "  \nKERNEL ERR\n"
++
++.hword 0xAA55
+\ No newline at end of file
+diff --git a/arch/tinymcu-riscv32/config.sh b/arch/tinymcu-riscv32/config.sh
+new file mode 100644
+index 0000000..a23a52f
+--- /dev/null
++++ b/arch/tinymcu-riscv32/config.sh
+@@ -0,0 +1,10 @@
++#!/usr/bin/env sh
++# arch/tinymcu-riscv32/config.sh
++# Architecture metadata, sourced by build_disk.sh / app_build.sh after
++# --arch is resolved. Supplies the cross toolchain prefix and the concrete
++# compiler flags for this ISA.
++#
++
++CROSS_COMPILE=${CROSS_COMPILE:-riscv64-unknown-elf-}
++ARCH_CFLAGS="-march=rv32im -mabi=ilp32"
++LD_EMULATION="elf32lriscv"
+diff --git a/arch/tinymcu-riscv32/linker_boot.ld b/arch/tinymcu-riscv32/linker_boot.ld
+new file mode 100644
+index 0000000..157d947
+--- /dev/null
++++ b/arch/tinymcu-riscv32/linker_boot.ld
+@@ -0,0 +1,31 @@
++ENTRY(_boot_start)
++
++TINYMCU_ROM_BASE     = 0x00000000;
++TINYMCU_RAM_BASE     = 0x02000000;
++TINYMCU_BOOT_RAM_SIZE = 0x400;  /* reserved window for scratch+stack below */
++
++MEMORY {
++    ROM (rx) : ORIGIN = TINYMCU_ROM_BASE, LENGTH = 32K
++}
++
++SECTIONS {
++    .boot TINYMCU_ROM_BASE : {
++        *(.boot)
++        *(.text .text.*)
++        . = ALIGN(4);
++        _boot_end = .;
++    } > ROM
++
++    /DISCARD/ : { *(.comment) *(.eh_frame) *(.note*) }
++}
++
++/* Volatile boot RAM at the base of real SRAM: a 512-byte sector-0 scratch
++ * buffer, then a 128-byte stack just above it. Only used while booting.
++ * The region is reused by the TPA once the kernel runs, same intent as
++ * the original vemu layout, just anchored to RAM_BASE instead of "right
++ * after the code" (which on this platform would be inside read-only ROM). */
++__boot_scratch   = TINYMCU_RAM_BASE;
++__boot_stack_top = __boot_scratch + 0x280;
++
++ASSERT(__boot_stack_top <= TINYMCU_RAM_BASE + TINYMCU_BOOT_RAM_SIZE,
++       "ERROR: boot scratch/stack overflow the reserved boot RAM window")
+diff --git a/core/kernel/kernel_abi.h b/core/kernel/kernel_abi.h
+index ba793df..a14795a 100644
+--- a/core/kernel/kernel_abi.h
++++ b/core/kernel/kernel_abi.h
+@@ -13,6 +13,13 @@
+ #include <stdint.h>
+ #include "s0_layout.h"
+ 
++#if __has_include("platform_base.h")
++#include "platform_base.h"
++#endif
++#ifndef PLATFORM_RAM_BASE
++#define PLATFORM_RAM_BASE 0x00000000
++#endif
++
+ /* Filename constants */
+ #define NAME83_BASE 8
+ #define NAME83_EXT 3
+@@ -221,7 +228,7 @@ typedef struct
+ 
+ #define VHDR_VER          0x0001u /* volume header format version */
+ 
+-#define TPA_LOAD_ADDR 0x0100
++#define TPA_LOAD_ADDR (PLATFORM_RAM_BASE + 0x0100)
+ 
+ /* Environment slot indices */
+ 
+diff --git a/core/kernel/linker_kernel.ld b/core/kernel/linker_kernel.ld
+index e8850d4..39bec84 100644
+--- a/core/kernel/linker_kernel.ld
++++ b/core/kernel/linker_kernel.ld
+@@ -1,8 +1,21 @@
+ ENTRY(_entry)
+ 
++/* TinyMCU: the kernel/TPA live in real SRAM at RAM_BASE (see
++ * rtl/tinymcu_pkg.vhd), not in a flat 0-based address space like the vemu
++ * platform this file was written for. Peripherals live in a completely
++ * separate bus window (PERIPHERALS_BASE = 0x04000000) reached directly by
++ * platform/tinymcu/bios.c and mmio.h via absolute addresses. __io_base
++ * below no longer marks real hardware, it's only the reserved margin at
++ * the top of usable RAM that __KERN_START/the ASSERT further down still
++ * guard against, kept so build_disk.sh's two-pass __KERN_START
++ * computation keeps working unchanged. sys_dev()/IOCTL_* (kernel_abi.h)
++ * assume a real MMIO window at __io_base and are therefore not usable on
++ * this platform. */
++TINYMCU_RAM_BASE = 0x02000000;
++
+ /* __KERN_START and __mem_size supplied via --defsym= in the two-pass build */
+ __io_size      = 0x0100;
+-__io_base      = __mem_size - __io_size;
++__io_base      = TINYMCU_RAM_BASE + __mem_size - __io_size;
+ 
+ MEMORY {
+     KRAM    (rwx) : ORIGIN = __KERN_START, LENGTH = __io_base - __KERN_START
+diff --git a/platform/tinymcu/bios.c b/platform/tinymcu/bios.c
+new file mode 100644
+index 0000000..2cd16ed
+--- /dev/null
++++ b/platform/tinymcu/bios.c
+@@ -0,0 +1,130 @@
++/*
++ * platform/tinymcu/bios.c
++ * CP/M Neo - TinyMCU hardware BIOS implementation
++ *
++ * Pure physical I/O. No volume awareness. Translation happens in
++ * kernel/disk.c. Includes mmio.h for direct register access.
++ *
++ * Console is the UART (polled, not interrupt-driven). Disk is a RAM
++ * buffer, not a real storage peripheral. TinyMCU has no SPI/SD/flash
++ * controller yet (see rtl/peripherals/). It starts empty on every reset:
++ * there is no persistence across power cycles until a real storage
++ * peripheral exists, or until the SRAM's initial contents are baked into
++ * the bitstream the same way the Boot ROM's are.
++ */
++
++#include "bios.h"
++#include "mmio.h"
++#include <stddef.h>
++
++/*
++ * Storage backend for bios_read()/bios_write(), selected at compile time.
++ * Default: the RAM disk (TinyMCU has no SPI/SD/flash controller yet, see
++ * rtl/peripherals/). Once a real controller exists, add its
++ * implementation below and build with
++ * -DTINYMCU_STORAGE=TINYMCU_STORAGE_SPI to switch -- only one backend is
++ * ever compiled in, so there's no risk of the wrong one's bios_read()/
++ * bios_write() accidentally getting linked in.
++ */
++#define TINYMCU_STORAGE_RAMDISK 1
++#define TINYMCU_STORAGE_SPI     2
++
++#ifndef TINYMCU_STORAGE
++#define TINYMCU_STORAGE TINYMCU_STORAGE_RAMDISK
++#endif
++
++#if TINYMCU_STORAGE == TINYMCU_STORAGE_RAMDISK
++
++/*
++ * RAM disk. Its own independent 128 KB SRAM block (RAMDISK_ADDR_WIDTH=15
++ * in rtl/core/tinymcu_cpu.vhd), decoded at its own top-byte window
++ * (0x03xx_xxxx, see tinymcu_addr_decoder.vhd's RAMDISK_TOP_BYTE) rather
++ * than a sub-range of RAM_BASE. kernel/TPA (RAM_ADDR_WIDTH=14, 64 KB)
++ * and the RAM disk are each an exact power of two on their own, no
++ * address-range gap to handle. Update this together with
++ * rtl/Makefile's RAM_ADDR_WIDTH/RAMDISK_ADDR_WIDTH if the split
++ * changes.
++ */
++#define TINYMCU_SECTOR_SIZE     512u
++#define TINYMCU_RAMDISK_BASE    0x03000000u     /* RAMDISK_TOP_BYTE (tinymcu_addr_decoder.vhd) */
++#define TINYMCU_RAMDISK_SECTORS 256u            /* 256 * 512 B = 128 KB */
++
++#elif TINYMCU_STORAGE == TINYMCU_STORAGE_SPI
++#error "TINYMCU_STORAGE_SPI selected, but no SPI/SD controller exists yet (see rtl/peripherals/)"
++#else
++#error "unknown TINYMCU_STORAGE"
++#endif
++
++/* Console baud rate. TINYMCU_UART_BAUDRATE holds clk_i cycles per bit directly.
++ */
++#define TINYMCU_UART_BAUD       9600u
++
++int bios_init(void)
++{
++    MMIO_W32(TINYMCU_UART_CONFIG, TINYMCU_UART_CONFIG_8N1);
++    MMIO_W32(TINYMCU_UART_BAUDRATE, (TINYMCU_CLK_KHZ * 1000u) / TINYMCU_UART_BAUD);
++
++    MMIO_W32(TINYMCU_TIMER_COUNTER, 0);
++    MMIO_W32(TINYMCU_TIMER_CONFIG, TINYMCU_TIMER_CLKSEL_DIV1);
++    return 0;
++}
++
++uint32_t bios_time(void)
++{
++    return MMIO_R32(TINYMCU_TIMER_COUNTER) / TINYMCU_CLK_KHZ;
++}
++
++void bios_conout(int c)
++{
++    if (c == '\n')
++    {
++        while (MMIO_R32(TINYMCU_UART_STATUS) & TINYMCU_UART_STATUS_TX_ACTIVE);
++        MMIO_W32(TINYMCU_UART_TX_DATA, '\r');
++    }
++
++    while (MMIO_R32(TINYMCU_UART_STATUS) & TINYMCU_UART_STATUS_TX_ACTIVE);
++    MMIO_W32(TINYMCU_UART_TX_DATA, (uint8_t)c);
++}
++
++int bios_const(void)
++{
++    return (MMIO_R32(TINYMCU_UART_STATUS) & TINYMCU_UART_STATUS_RX_READY) ? 0xFF : 0;
++}
++
++int bios_conin(void)
++{
++    while (!(MMIO_R32(TINYMCU_UART_STATUS) & TINYMCU_UART_STATUS_RX_READY));
++    return (int)MMIO_R32(TINYMCU_UART_RX_DATA);
++}
++
++void bios_consize(uint8_t *cw, uint8_t *ch)
++{
++    *cw = 80;
++    *ch = 24;
++}
++
++#if TINYMCU_STORAGE == TINYMCU_STORAGE_RAMDISK
++
++int bios_read(uint16_t lba, uint8_t *buf)
++{
++    if (buf == NULL || lba >= TINYMCU_RAMDISK_SECTORS)
++        return -1;
++
++    const uint8_t *src = (const uint8_t *)(uintptr_t)(TINYMCU_RAMDISK_BASE + (uint32_t)lba * TINYMCU_SECTOR_SIZE);
++    for (uint32_t i = 0; i < TINYMCU_SECTOR_SIZE; i++)
++        buf[i] = src[i];
++    return 0;
++}
++
++int bios_write(uint16_t lba, const uint8_t *buf)
++{
++    if (buf == NULL || lba >= TINYMCU_RAMDISK_SECTORS)
++        return -1;
++
++    uint8_t *dst = (uint8_t *)(uintptr_t)(TINYMCU_RAMDISK_BASE + (uint32_t)lba * TINYMCU_SECTOR_SIZE);
++    for (uint32_t i = 0; i < TINYMCU_SECTOR_SIZE; i++)
++        dst[i] = buf[i];
++    return 0;
++}
++
++#endif /* TINYMCU_STORAGE == TINYMCU_STORAGE_RAMDISK */
+diff --git a/platform/tinymcu/mmio.h b/platform/tinymcu/mmio.h
+new file mode 100644
+index 0000000..4f36ecb
+--- /dev/null
++++ b/platform/tinymcu/mmio.h
+@@ -0,0 +1,142 @@
++/*
++ * platform/tinymcu/mmio.h
++ * CP/M Neo - memory-mapped I/O register definitions for TinyMCU
++ *
++ * Shared by the kernel, libc, and BIOS. Never include from user programs.
++ *
++ * Unlike platform/vemu (a flat, 0-based emulated address space with the
++ * I/O window packed into the top of RAM), TinyMCU is real hardware with a
++ * fixed, separate peripheral bus window at PERIPHERALS_BASE, see
++ * rtl/tinymcu_pkg.vhd, the authoritative source for every address below.
++ * There is no __io_base/IO_BASE indirection here: these addresses never
++ * move, regardless of --mem.
++ *
++ * TinyMCU has no DMA controller, no memory-mapped display, and no
++ * separate keyboard controller. The console is the UART (TX_DATA/
++ * RX_DATA), and bios_read()/bios_write() are backed by a plain RAM buffer
++ * in platform/tinymcu/bios.c, not a hardware disk/DMA register.
++ */
++
++#ifndef MMIO_H
++#define MMIO_H
++
++#include <stdint.h>
++#include "kernel_abi.h"
++
++/* MMIO access macros */
++
++/*
++ * All addresses are passed as integers (uint32_t register addresses).
++ * Casting an integer directly to a pointer of a different width triggers
++ * -Wint-to-pointer-cast on RV32 because pointers are 32 bits wide.
++ * The correct idiom is to widen to uintptr_t first, which matches the
++ * pointer width on every target, and then cast to the access type.
++ */
++#define MMIO_W32(addr, val) __asm__ volatile("sw %1, 0(%0)" : : "r"((uintptr_t)(addr)), "r"((uint32_t)(val)) : "memory")
++
++#define MMIO_W16(addr, val) __asm__ volatile("sh %1, 0(%0)" : : "r"((uintptr_t)(addr)), "r"((uint16_t)(val)) : "memory")
++
++#define MMIO_W8(addr, val) __asm__ volatile("sb %1, 0(%0)" : : "r"((uintptr_t)(addr)), "r"((uint8_t)(val)) : "memory")
++
++#define MMIO_R32(addr)                                                                                                 \
++    ({                                                                                                                 \
++        uintptr_t _a = (uintptr_t)(addr);                                                                              \
++        uint32_t  _v;                                                                                                  \
++        __asm__ volatile("lw %0, 0(%1)" : "=r"(_v) : "r"(_a) : "memory");                                              \
++        _v;                                                                                                            \
++    })
++
++#define MMIO_R16(addr)                                                                                                 \
++    ({                                                                                                                 \
++        uintptr_t _a = (uintptr_t)(addr);                                                                              \
++        uint16_t  _v;                                                                                                  \
++        __asm__ volatile("lhu %0, 0(%1)" : "=r"(_v) : "r"(_a) : "memory");                                             \
++        _v;                                                                                                            \
++    })
++
++#define MMIO_R8(addr)                                                                                                  \
++    ({                                                                                                                 \
++        uintptr_t _a = (uintptr_t)(addr);                                                                              \
++        uint8_t   _v;                                                                                                  \
++        __asm__ volatile("lbu %0, 0(%1)" : "=r"(_v) : "r"(_a) : "memory");                                             \
++        _v;                                                                                                            \
++    })
++
++/* Peripheral base addresses (rtl/tinymcu_pkg.vhd) */
++
++#define TINYMCU_GPIO_BASE  0x04000000u
++#define TINYMCU_TIMER_BASE 0x04000100u
++#define TINYMCU_UART_BASE  0x04000200u
++
++/*
++ * UART registers (rtl/peripherals/tinymcu_periph_uart.vhd). This is the
++ * BIOS console: bios_conout()/bios_conin()/bios_const() poll STATUS and
++ * read/write TX_DATA/RX_DATA directly. INT_CONFIG/INT_STATUS are not used
++ * by the BIOS. The console is polled, not interrupt-driven.
++ */
++
++#define TINYMCU_UART_CONFIG     (TINYMCU_UART_BASE + 0x00)
++#define TINYMCU_UART_BAUDRATE   (TINYMCU_UART_BASE + 0x04)
++#define TINYMCU_UART_STATUS     (TINYMCU_UART_BASE + 0x08)
++#define TINYMCU_UART_TX_DATA    (TINYMCU_UART_BASE + 0x0C)
++#define TINYMCU_UART_RX_DATA    (TINYMCU_UART_BASE + 0x10)
++#define TINYMCU_UART_INT_CONFIG (TINYMCU_UART_BASE + 0x14)
++#define TINYMCU_UART_INT_STATUS (TINYMCU_UART_BASE + 0x18)
++
++/* CONFIG bits 1:0: data bits ("11" unused, falls back to 8). */
++#define TINYMCU_UART_DATABITS_8 (0x0u << 0)
++#define TINYMCU_UART_DATABITS_7 (0x1u << 0)
++#define TINYMCU_UART_DATABITS_9 (0x2u << 0)
++
++/* CONFIG bits 3:2: stop bits. */
++#define TINYMCU_UART_STOPBITS_1 (0x0u << 2)
++#define TINYMCU_UART_STOPBITS_2 (0x1u << 2)
++
++/* CONFIG bits 5:4: parity. */
++#define TINYMCU_UART_PARITY_NONE (0x0u << 4)
++#define TINYMCU_UART_PARITY_EVEN (0x1u << 4)
++#define TINYMCU_UART_PARITY_ODD  (0x2u << 4)
++
++/* CONFIG shortcut: 8 data bits, 1 stop bit, no parity. */
++#define TINYMCU_UART_CONFIG_8N1 (TINYMCU_UART_DATABITS_8 | TINYMCU_UART_STOPBITS_1 | TINYMCU_UART_PARITY_NONE)
++
++/* STATUS bits. */
++#define TINYMCU_UART_STATUS_TX_ACTIVE    (1u << 0)
++#define TINYMCU_UART_STATUS_RX_READY     (1u << 1)
++#define TINYMCU_UART_STATUS_PARITY_ERROR (1u << 2)
++
++/*
++ * Timer registers (rtl/peripherals/tinymcu_periph_timer.vhd). bios_time()
++ * reads COUNTER directly and converts ticks to milliseconds using
++ * TINYMCU_CLK_KHZ below. There is no CLK_KHZ *register* like vemu's,
++ * the clock frequency is a build-time constant instead.
++ */
++
++#define TINYMCU_TIMER_CONFIG     (TINYMCU_TIMER_BASE + 0x00)
++#define TINYMCU_TIMER_INT_CONFIG (TINYMCU_TIMER_BASE + 0x04)
++#define TINYMCU_TIMER_INT_STATUS (TINYMCU_TIMER_BASE + 0x08)
++#define TINYMCU_TIMER_COUNTER    (TINYMCU_TIMER_BASE + 0x0C)
++#define TINYMCU_TIMER_COMPARE    (TINYMCU_TIMER_BASE + 0x10)
++
++/* CONFIG bits 3:0: CLKSEL (binary-encoded, not one-hot). */
++#define TINYMCU_TIMER_CLKSEL_OFF     0x0u
++#define TINYMCU_TIMER_CLKSEL_DIV1    0x1u
++#define TINYMCU_TIMER_CLKSEL_DIV2    0x2u
++#define TINYMCU_TIMER_CLKSEL_DIV4    0x3u
++#define TINYMCU_TIMER_CLKSEL_DIV8    0x4u
++#define TINYMCU_TIMER_CLKSEL_DIV64   0x5u
++#define TINYMCU_TIMER_CLKSEL_DIV256  0x6u
++#define TINYMCU_TIMER_CLKSEL_DIV1024 0x7u
++
++/* System clock, in kHz. Set to match the target build (e.g. the Zynq-7010
++ * PL clock TinyMCU is synthesized with). Used by bios_time() to convert
++ * COUNTER ticks (at CLKSEL_DIV1, i.e. one tick per clk_i cycle) to ms. */
++#define TINYMCU_CLK_KHZ 16000u
++
++/*
++ * GPIO (rtl/peripherals/tinymcu_periph_gpio.vhd) is not used by the
++ * stock BIOS functions. TINYMCU_GPIO_BASE is provided above for
++ * platform-specific extensions only.
++ */
++
++#endif /* MMIO_H */
+diff --git a/platform/tinymcu/platform_base.h b/platform/tinymcu/platform_base.h
+new file mode 100644
+index 0000000..fff52ca
+--- /dev/null
++++ b/platform/tinymcu/platform_base.h
+@@ -0,0 +1,6 @@
++#ifndef PLATFORM_BASE_H
++#define PLATFORM_BASE_H
++
++#define PLATFORM_RAM_BASE 0x02000000
++
++#endif /* PLATFORM_BASE_H */
+diff --git a/sdk/linker/linker_sdk.ld b/sdk/linker/linker_sdk.ld
+index 5273660..de25079 100644
+--- a/sdk/linker/linker_sdk.ld
++++ b/sdk/linker/linker_sdk.ld
+@@ -4,10 +4,17 @@ ENTRY(_entry)
+ __tpa_stack_size = 0x1000;
+ __tpa_stack_top  = __kernel_base;
+ 
++/* __tpa_base defaults to 0x0100 (RAM starting at address 0, e.g. vemu);
++ * platforms whose RAM starts elsewhere (e.g. TinyMCU) pass their own
++ * --defsym=__tpa_base=... at link time (see sysgen/build_disk.sh's
++ * TPA_BASE). ust match kernel_abi.h's TPA_LOAD_ADDR exactly, since
++ * that's the runtime address the kernel actually loads/jumps to. */
++__tpa_base = DEFINED(__tpa_base) ? __tpa_base : 0x0100;
++
+ MEMORY {
+-    /* Length = available TPA RAM (from 0x0100 up to the kernel,
++    /* Length = available TPA RAM (from __tpa_base up to the kernel,
+      * __kernel_base from kernel.elf via --just-symbols) */
+-    RAM (rwx) : ORIGIN = 0x0100, LENGTH = __kernel_base - 0x0100
++    RAM (rwx) : ORIGIN = __tpa_base, LENGTH = __kernel_base - __tpa_base
+ }
+ 
+ SECTIONS {
+diff --git a/sdk/src/start.c b/sdk/src/start.c
+index b1ea02a..5cb7f96 100644
+--- a/sdk/src/start.c
++++ b/sdk/src/start.c
+@@ -1,7 +1,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
+-extern int main();
++extern int main(int argc, char **argv);
+ 
+ void __attribute__((used, noinline)) _start(void)
+ {
+diff --git a/sysgen/build_disk.sh b/sysgen/build_disk.sh
+index effec5f..568d1c8 100755
+--- a/sysgen/build_disk.sh
++++ b/sysgen/build_disk.sh
+@@ -28,6 +28,19 @@ ARCH=${ARCH:-riscv32}
+ MEM_SIZE=${MEM_SIZE:?"--mem is required (e.g. --mem=64K)"}
+ PLATFORM=${PLATFORM:?"--platform is required"}
+ 
++# Where the TPA (CCP/apps) is loaded and linked to run from. 0x0100 for
++# platforms whose RAM starts at address 0 (e.g. vemu); TinyMCU's RAM
++# starts at 0x02000000 (rtl/tinymcu_pkg.vhd's RAM_BASE), so 0x0100 alone
++# would fall inside its read-only Boot ROM instead of RAM. Must match
++# kernel_abi.h's TPA_LOAD_ADDR (platform/tinymcu/platform_base.h feeds
++# that automatically via -I platform/$PLATFORM); passed to the CCP's
++# linker step below via --defsym=__tpa_base so sdk/linker/linker_sdk.ld
++# links it to run at the address the kernel will actually load it to.
++case "$PLATFORM" in
++    tinymcu) TPA_BASE=0x02000100 ;;
++    *)       TPA_BASE=0x0100 ;;
++esac
++
+ # Convert --mem=64K style suffix to hex bytes for ld --defsym
+ mem_kb=$(printf '%s' "$MEM_SIZE" | tr '[:lower:]' '[:upper:]')
+ case "$mem_kb" in
+@@ -170,6 +183,7 @@ for src in $CCP_C; do
+     CCP_OBJS="$CCP_OBJS $obj"
+ done
+ $LD $LDFLAGS -T sdk/linker/linker_sdk.ld \
++    --defsym=__tpa_base="$TPA_BASE" \
+     $CCP_OBJS "$SDK_OBJ/entry.o" "$LIBGCC" \
+     --just-symbols="$INT/kernel.elf" -o "$INT/ccp.elf"
+ $OBJCOPY -O binary "$INT/ccp.elf" "$INT/ccp.bin"
+diff --git a/sysgen/commands.c b/sysgen/commands.c
+index 3f79d4f..322cae0 100644
+--- a/sysgen/commands.c
++++ b/sysgen/commands.c
+@@ -77,6 +77,7 @@ typedef struct
+     const char *platform;
+     const char *arch;
+     bool no_extra;
++    bool no_sys;
+ } CmdNewConfig;
+ 
+ /* Disk image path + filesystem context for host-side operations. */
+@@ -353,6 +354,7 @@ static const char *const FLAGS_NEW[] = {
+     "--platform",
+     "--arch",
+     "--no-extra",
++    "--no-sys",
+     NULL,
+ };
+ static const char *const FLAGS_FILE[] = {
+@@ -399,6 +401,7 @@ static bool parse_cmd_new_args(int argc, char **argv, CmdNewConfig *cfg)
+     const char *arch_str = get_str_flag(argc, argv, "--arch");
+ 
+     cfg->no_extra = get_bool_flag(argc, argv, "--no-extra");
++    cfg->no_sys = get_bool_flag(argc, argv, "--no-sys");
+ 
+     cfg->disk_size_kb = 0; /* 0 means "unset"; resolved to max after build */
+ 
+@@ -589,7 +592,7 @@ int cmd_new(int argc, char **argv)
+     AddFileOpts sys_opts = {VOL_A, 0, FILE_ATTR_SYSTEM | FILE_ATTR_READ_ONLY, "installed"};
+     AddFileOpts extra_opts = {VOL_A, 0, FILE_ATTR_READ_ONLY, "installed"};
+ 
+-    if (install_sys_apps(paths, &sys_opts) != 0)
++    if (!cfg.no_sys && install_sys_apps(paths, &sys_opts) != 0)
+         goto cleanup;
+ 
+     if (!cfg.no_extra && install_extra_apps(paths, &extra_opts) != 0)
+diff --git a/sysgen/main.c b/sysgen/main.c
+index d53f3ab..f67f6fe 100644
+--- a/sysgen/main.c
++++ b/sysgen/main.c
+@@ -19,7 +19,8 @@ static void usage(void)
+         "      --mem=<KB>         Total RAM (e.g., 64K)\n"
+         "      --platform=<dir>   Platform directory name\n"
+         "      --arch=<isa>      Architecture (arch/<isa> dir) [default: riscv32]\n"
+-        "      --no-extra       Skip optional bundled apps (apps/extra)\n\n"
++        "      --no-extra       Skip optional bundled apps (apps/extra)\n"
++        "      --no-sys         Skip bundled system apps (apps/sys)\n\n"
+         "  sysgen install <folder|file.c> [opts]  Compile sources to .com and add to disk\n"
+         "      --sys-apps    Install bundled sys apps (apps/sys)\n"
+         "      --extra-apps  Install bundled extra apps (apps/extra)\n"
+-- 
+2.34.1
+

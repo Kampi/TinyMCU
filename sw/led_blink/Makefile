@@ -8,7 +8,10 @@
 #                      ../../scripts/hex2rom.py (overwrites the ROM's
 #                      current PROGRAM constant -- run
 #                      ../../scripts/rom2hex.py first if you want to
-#                      keep a copy of what's there now)
+#                      keep a copy of what's there now). Also disables
+#                      the RAM disk (../../rtl/Makefile's
+#                      disable-ramdisk) first, since this program has no
+#                      use for it.
 #   make clean		- cleans the build
 #
 # Requires a RISC-V GCC cross-compiler on PATH. Override CROSS if your
@@ -49,6 +52,7 @@ SRCS := ../crt0.s $(LIB_DIR)/tinymcu_trap.S main.c $(LIB_DIR)/tinymcu_gpio.c \
 all: $(BUILD)/main.elf $(BUILD)/main.bin $(BUILD)/main.hex $(BUILD)/main.lst
 
 rom: $(BUILD)/main.hex
+	$(MAKE) -C ../../rtl disable-ramdisk
 	$(PYTHON) $(HEX2ROM) $(BUILD)/main.hex --vhdl-file $(IMEM_VHD)
 
 $(BUILD):

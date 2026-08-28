@@ -35,7 +35,7 @@
 -- Dependencies:
 --   tinymcu_pkg, tinymcu_imem, tinymcu_cpu_control, tinymcu_cpu_regfile,
 --   tinymcu_cpu_csrfile, tinymcu_cpu_alu, tinymcu_addr_decoder,
---   tinymcu_sram, tinymcu_periph, tinymcu_periph_gpio
+--   tinymcu_ram_subsystem, tinymcu_periph, tinymcu_periph_gpio
 --
 --------------------------------------------------------------------------------
 
@@ -48,14 +48,26 @@ use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_cpu is
     generic (
-        IMEM_ADDR_WIDTH : integer := 13;  -- 2^13 words = 32 KB Boot ROM
-        RAM_ADDR_WIDTH  : integer := 14;  -- 2^14 words = 64 KB SRAM
+        IMEM_ADDR_WIDTH    : integer := 13;
+        RAM_ADDR_WIDTH     : integer := 14;
+
+        -- When false, the RAM disk's SRAM array (u_ram_subsystem below,
+        -- see tinymcu_sram.vhd's tinymcu_ram_subsystem/tinymcu_sram
+        -- ENABLE generic) is left out of the design entirely and its address window
+        -- (RAMDISK_TOP_BYTE, tinymcu_addr_decoder.vhd) reads 0, acks the
+        -- same cycle, same as any other unmapped region. Also disables
+        -- fetching from it (tinymcu_imem.vhd's fetch_mux_gen), so PC can
+        -- never end up executing there either. When true, the RAM disk
+        -- is ordinary general-purpose memory, usable for data and code
+        -- exactly like RAM (sw/cpm-neo/'s BIOS is what gives it "disk"
+        -- semantics in software, not this generic).
+        RAMDISK_ENABLE     : boolean := false;
+        RAMDISK_ADDR_WIDTH : integer := 15;
 
         -- Simulation only: prints "PC=0x... INSTR=0x... <mnemonic>" every
         -- cycle an instruction is in EX, using tinymcu_pkg.vhd's
         -- disassemble(). Default off so testbenches that don't want the
-        -- noise (e.g. tinymcu_tb_core.vhd) are unaffected;
-        -- tinymcu_tb_software.vhd turns it on.
+        -- noise (e.g. tinymcu_tb_core.vhd) are unaffected.
         TRACE_ENABLE    : boolean := false
     );
     port (
@@ -86,6 +98,17 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal pc_reg       : word_t;
     signal next_pc      : word_t;
     signal instr_if     : word_t;
+
+    -- u_ram_subsystem's own independent fetch-port results (kernel/TPA
+    -- RAM and RAM disk respectively), registered (BRAM-style, one cycle
+    -- of latency) same as the Boot ROM's own -- tinymcu_imem.vhd's
+    -- fetch_mux_gen arbitrates between them and its own Boot ROM result,
+    -- gated by RAMDISK_ENABLE. ramdisk_fetch_dout is tied to 0 when
+    -- RAMDISK_ENABLE is false (the RAM disk's SRAM array doesn't exist
+    -- then, see tinymcu_sram.vhd's ENABLE generic), so it's harmless
+    -- even though unused in that case.
+    signal ram_fetch_dout     : word_t;
+    signal ramdisk_fetch_dout : word_t;
 
     -- IF/ID buffer: tinymcu_imem's boot-ROM read is registered (BRAM-style, one cycle of latency, so
     -- instr_if lags the pc_reg value that produced it by one cycle
@@ -178,6 +201,8 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal imem_rsp     : bus_rsp_t;
     signal ram_req      : bus_req_t;
     signal ram_rsp      : bus_rsp_t;
+    signal ramdisk_req  : bus_req_t;
+    signal ramdisk_rsp  : bus_rsp_t;
     signal periph_req   : bus_req_t;
     signal periph_rsp   : bus_rsp_t;
     signal gpio_req     : bus_req_t;
@@ -215,13 +240,19 @@ begin
     -- Fetch stage: instruction memory
     ----------------------------------------------------------------------
     u_imem : entity tinymcu.tinymcu_imem
-        generic map (IMEM_ADDR_WIDTH => IMEM_ADDR_WIDTH)
+        generic map (
+            IMEM_ADDR_WIDTH => IMEM_ADDR_WIDTH,
+            RAMDISK_ENABLE  => RAMDISK_ENABLE
+        )
         port map (
-            clk_i        => clk_i,
-            fetch_addr_i => pc_reg,
-            fetch_dout_o => instr_if,
-            data_req_i   => imem_req,
-            data_rsp_o   => imem_rsp
+            clk_i                => clk_i,
+            fetch_addr_i         => pc_reg,
+            fetch_dout_o         => instr_if,
+            data_req_i           => imem_req,
+            data_rsp_o           => imem_rsp,
+            fetch_pc_if_i        => pc_if,
+            ram_fetch_dout_i     => ram_fetch_dout,
+            ramdisk_fetch_dout_i => ramdisk_fetch_dout
         );
 
     -- Continue with the pipeline flush on a rising edge of "stall_dl"
@@ -608,6 +639,9 @@ begin
     -- Data memory bus
     ----------------------------------------------------------------------
     u_addr_decoder : entity tinymcu.tinymcu_addr_decoder
+        generic map (
+            RAMDISK_ENABLE => RAMDISK_ENABLE
+        )
         port map (
             cpu_rsp_o       => cpu_rsp,
             cpu_req_i       => cpu_req,
@@ -615,20 +649,31 @@ begin
             imem_rsp_i      => imem_rsp,
             ram_req_o       => ram_req,
             ram_rsp_i       => ram_rsp,
+            ramdisk_req_o   => ramdisk_req,
+            ramdisk_rsp_i   => ramdisk_rsp,
             periph_req_o    => periph_req,
             periph_rsp_i    => periph_rsp
         );
 
     ----------------------------------------------------------------------
-    -- SRAM
+    -- RAM subsystem: kernel/TPA RAM + RAM disk (sw/cpm-neo/ only)
     ----------------------------------------------------------------------
-    u_sram : entity tinymcu.tinymcu_sram
-        generic map (ADDR_WIDTH => RAM_ADDR_WIDTH)
+    u_ram_subsystem : entity tinymcu.tinymcu_ram_subsystem
+        generic map (
+            RAM_ADDR_WIDTH     => RAM_ADDR_WIDTH,
+            RAMDISK_ADDR_WIDTH => RAMDISK_ADDR_WIDTH,
+            RAMDISK_ENABLE     => RAMDISK_ENABLE
+        )
         port map (
-            clk_i   => clk_i,
-            rst_i   => rst_i,
-            req_i   => ram_req,
-            rsp_o   => ram_rsp
+            clk_i                 => clk_i,
+            rst_i                 => rst_i,
+            ram_req_i             => ram_req,
+            ram_rsp_o             => ram_rsp,
+            ramdisk_req_i         => ramdisk_req,
+            ramdisk_rsp_o         => ramdisk_rsp,
+            fetch_addr_i          => pc_reg,
+            ram_fetch_dout_o      => ram_fetch_dout,
+            ramdisk_fetch_dout_o  => ramdisk_fetch_dout
         );
 
     cpu_req.addr <= alu_result;

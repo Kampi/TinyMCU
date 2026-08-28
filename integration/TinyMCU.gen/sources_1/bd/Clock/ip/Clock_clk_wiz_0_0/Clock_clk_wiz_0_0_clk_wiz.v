@@ -53,7 +53,8 @@
 //  Output     Output      Phase    Duty Cycle   Pk-to-Pk     Phase
 //   Clock     Freq (MHz)  (degrees)    (%)     Jitter (ps)  Error (ps)
 //----------------------------------------------------------------------------
-// clk_out1__16.00000______0.000______50.0______180.478_____96.948
+// _____MCU__16.00000______0.000______50.0______180.478_____96.948
+// _____ILA__100.00000______0.000______50.0______124.615_____96.948
 //
 //----------------------------------------------------------------------------
 // Input Clock   Freq (MHz)    Input Jitter (UI)
@@ -66,9 +67,11 @@ module Clock_clk_wiz_0_0_clk_wiz
 
  (// Clock in ports
   // Clock out ports
-  output        clk_out1,
+  output        MCU,
+  output        ILA,
   // Status and control signals
   input         reset,
+  output        locked,
   input         clk_in1
  );
   // Input buffering
@@ -89,8 +92,8 @@ wire clk_in2_Clock_clk_wiz_0_0;
   //    * Unused inputs are tied off
   //    * Unused outputs are labeled unused
 
-  wire        clk_out1_Clock_clk_wiz_0_0;
-  wire        clk_out2_Clock_clk_wiz_0_0;
+  wire        MCU_Clock_clk_wiz_0_0;
+  wire        ILA_Clock_clk_wiz_0_0;
   wire        clk_out3_Clock_clk_wiz_0_0;
   wire        clk_out4_Clock_clk_wiz_0_0;
   wire        clk_out5_Clock_clk_wiz_0_0;
@@ -105,7 +108,6 @@ wire clk_in2_Clock_clk_wiz_0_0;
   wire        clkfbout_buf_Clock_clk_wiz_0_0;
   wire        clkfboutb_unused;
     wire clkout0b_unused;
-   wire clkout1_unused;
    wire clkout1b_unused;
    wire clkout2_unused;
    wire clkout2b_unused;
@@ -131,15 +133,19 @@ wire clk_in2_Clock_clk_wiz_0_0;
     .CLKOUT0_PHASE        (0.000),
     .CLKOUT0_DUTY_CYCLE   (0.500),
     .CLKOUT0_USE_FINE_PS  ("FALSE"),
+    .CLKOUT1_DIVIDE       (10),
+    .CLKOUT1_PHASE        (0.000),
+    .CLKOUT1_DUTY_CYCLE   (0.500),
+    .CLKOUT1_USE_FINE_PS  ("FALSE"),
     .CLKIN1_PERIOD        (8.000))
   mmcm_adv_inst
     // Output clocks
    (
     .CLKFBOUT            (clkfbout_Clock_clk_wiz_0_0),
     .CLKFBOUTB           (clkfboutb_unused),
-    .CLKOUT0             (clk_out1_Clock_clk_wiz_0_0),
+    .CLKOUT0             (MCU_Clock_clk_wiz_0_0),
     .CLKOUT0B            (clkout0b_unused),
-    .CLKOUT1             (clkout1_unused),
+    .CLKOUT1             (ILA_Clock_clk_wiz_0_0),
     .CLKOUT1B            (clkout1b_unused),
     .CLKOUT2             (clkout2_unused),
     .CLKOUT2B            (clkout2b_unused),
@@ -175,6 +181,7 @@ wire clk_in2_Clock_clk_wiz_0_0;
     .RST                 (reset_high));
   assign reset_high = reset; 
 
+  assign locked = locked_int;
 // Clock Monitor clock assigning
 //--------------------------------------
  // Output buffering
@@ -190,9 +197,13 @@ wire clk_in2_Clock_clk_wiz_0_0;
 
 
   BUFG clkout1_buf
-   (.O   (clk_out1),
-    .I   (clk_out1_Clock_clk_wiz_0_0));
+   (.O   (MCU),
+    .I   (MCU_Clock_clk_wiz_0_0));
 
+
+  BUFG clkout2_buf
+   (.O   (ILA),
+    .I   (ILA_Clock_clk_wiz_0_0));
 
 
 

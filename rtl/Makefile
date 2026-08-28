@@ -1,4 +1,4 @@
-# TinyMCU - GHDL build & simulation Makefile
+# TinyMCU - build & simulation Makefile
 #
 # Usage:
 #   make              - full regression: clean, then run every
@@ -15,33 +15,40 @@
 #   make run-timer    - same, for tb_timer (Timer peripheral)
 #   make run-uart     - same, for tb_uart (UART peripheral)
 #   make run-mult     - same, for tb_mult (M-extension multiply unit,
-#                       standalone -- not through tinymcu_cpu)
+#                       standalone and not through tinymcu_cpu)
 #   make run-mult-cpu - regenerate the ROM from asm_mult.py (M-extension
 #                       multiply pipeline-integration program), then
 #                       analyze, elaborate and run tb_mult_cpu
 #   make run-div      - same as run-mult, for tb_div (M-extension divide
-#                       unit, standalone -- not through tinymcu_cpu)
+#                       unit, standalone and not through tinymcu_cpu)
 #   make run-div-cpu  - same as run-mult-cpu, but for tb_div_cpu
 #                       (regenerates the ROM from asm_div.py)
 #   make wave         - like run-core, but also dump build/tb_core.ghw
 #                       for a waveform viewer (e.g. GTKWave)
+#   make sim SIM_TB=<name> - simulate any testbench by name, no dedicated
+#                       target needed (e.g. SIM_TB=cpm_neo runs
+#                       sim/cpm-neo/tinymcu_tb_cpm_neo.vhd's tb_cpm_neo).
+#                       Unlike the targets above, never touches
+#                       $(IMEM_VHD)/RAMDISK_ENABLE. It just simulates
+#                       whatever ROM/RAM content is already baked in.
 #   make analyze      - syntax/semantic check only, no simulation
 #   make clean        - remove the build directory
-#
-# "run-core" always regenerates $(IMEM_VHD)'s (core/tinymcu_imem_bootrom.vhd)
-# PROGRAM constant (and sim/tinymcu_tb_core.vhd's checks) from
-# scripts/asm.py first, so it always exercises the hand-assembled demo
-# program -- it overwrites whatever else (e.g. a compiled
-# sw/*/build/main.hex, or "run-irq"'s IRQ test program) was written
-# into the ROM by something else. Those targets stay independent of
-# this one on purpose; re-run them afterwards if you want the ROM to
-# hold that program instead again.
-#
-# "run" (the aggregate target above) runs through every ROM-regenerating
-# target in sequence, so $(IMEM_VHD) ends up holding whichever one ran
-# last (run-div-cpu's program, as the targets are currently
-# ordered) -- re-run the specific target you want afterwards if that
-# matters to you.
+#   make cpm-neo      - build sw/cpm-neo/ (CP/M Neo) for the tinymcu
+#                       platform and bake both its bootloader and its
+#                       disk image into this RTL, everything needed to
+#                       get it actually booting on real hardware in one
+#                       command (see the "sw/cpm-neo/ integration"
+#                       comment further down for the full picture)
+#   make cpm-neo-rom     - just the bootloader half of cpm-neo
+#   make cpm-neo-ramdisk - just the disk-image half of cpm-neo
+#   make set-generics    - just patch RAM_ADDR_WIDTH/RAMDISK_ADDR_WIDTH/
+#                       RAMDISK_ENABLE (=true) into rtl/core/tinymcu_cpu.vhd
+#                       and the Vivado top level, without building anything
+#   make disable-ramdisk - set RAMDISK_ENABLE=false (RAMDISK_ADDR_WIDTH
+#                       stays at its real value, see that generic's
+#                       comment) and clear any stale cpm-neo disk content;
+#                       runs automatically before every asm* target, so
+#                       plain "make"/"make run" always does this already
 #
 
 GHDL   ?= ghdl
@@ -56,12 +63,36 @@ CORE_DIR := $(RTL_DIR)/core
 PERIPH_DIR := $(RTL_DIR)/peripherals
 SIM_DIR := ../sim
 SCRIPTS_DIR := ../scripts
+SIM_SCRIPTS_DIR := $(SCRIPTS_DIR)/sim
 
-ASM := $(SCRIPTS_DIR)/asm.py
+ASM := $(SIM_SCRIPTS_DIR)/asm.py
 GHDL_ANALYZE := $(SCRIPTS_DIR)/ghdl_analyze.sh
 IMEM_VHD := $(CORE_DIR)/tinymcu_imem_bootrom.vhd
 IMEM_TB_VHD := $(SIM_DIR)/tinymcu_tb_core.vhd
 RTL_SRCS := $(wildcard $(RTL_DIR)/*.vhd $(CORE_DIR)/*.vhd $(PERIPH_DIR)/*.vhd)
+OBJCOPY  ?= riscv64-unknown-elf-objcopy
+CPU_VHD  := $(CORE_DIR)/tinymcu_cpu.vhd
+TOP_VHD  := ../integration/TinyMCU.srcs/sources_1/imports/rtl/tinymcu_top.vhd
+SRAM_VHD := $(CORE_DIR)/tinymcu_sram_generic.vhd
+RAMDISK2ROM := $(SCRIPTS_DIR)/cpm_neo_ramdisk2rom.py
+HEX2ROM     := $(SCRIPTS_DIR)/hex2rom.py
+
+CPM_NEO_DIR      := ../sw/cpm-neo
+CPM_NEO_BUILD    := $(CPM_NEO_DIR)/sysgen/build
+CPM_NEO_BOOT_ELF := $(CPM_NEO_BUILD)/core/int/bootloader.elf
+CPM_NEO_BOOT_HEX := $(CPM_NEO_BUILD)/bootloader.hex
+CPM_NEO_DISK_IMG := $(CPM_NEO_BUILD)/disk.img
+
+RAM_ADDR_WIDTH     ?= 14
+RAMDISK_ADDR_WIDTH ?= 15
+CPM_NEO_PLATFORM   ?= tinymcu
+CPM_NEO_ARCH       ?= tinymcu-riscv32
+
+SRAM_BYTES        := $(shell echo $$(( (1 << $(RAM_ADDR_WIDTH)) * 4 )))
+RAMDISK_BYTES     := $(shell echo $$(( (1 << $(RAMDISK_ADDR_WIDTH)) * 4 )))
+CPM_NEO_MEM_SIZE  := $(shell echo $$(( $(SRAM_BYTES) / 1024 )))K
+CPM_NEO_DISK_SIZE := $(shell echo $$(( $(RAMDISK_BYTES) / 1024 )))K
+RAMDISK_MAX_WORDS := $(shell echo $$(( $(RAMDISK_BYTES) / 4 )))
 
 # Testbenches are verification scaffolding, not MCU components, so they
 # are compiled into the default "work" library instead of "$(LIB)" and
@@ -73,7 +104,7 @@ SIM_SRCS := $(SIM_DIR)/tinymcu_tb_core.vhd
 # checks-file counterpart to regenerate: tb_irq.vhd's asserts are
 # hardwired to its fixed program (see both files' header comments), not
 # auto-generated.
-IRQ_ASM := $(SCRIPTS_DIR)/asm_irq.py
+IRQ_ASM := $(SIM_SCRIPTS_DIR)/asm_irq.py
 IRQ_SIM_SRCS := $(SIM_DIR)/core/tinymcu_tb_irq.vhd
 IRQ_TB := tb_irq
 
@@ -102,7 +133,7 @@ MULT_TB       := tb_mult
 # IRQ_ASM/IRQ_SIM_SRCS: asm_mult.py has no checks-file counterpart to
 # regenerate, the testbench's asserts are hardwired to its fixed
 # program (see both files' header comments).
-MULT_CPU_ASM      := $(SCRIPTS_DIR)/asm_mult.py
+MULT_CPU_ASM      := $(SIM_SCRIPTS_DIR)/asm_mult.py
 MULT_CPU_SIM_SRCS := $(SIM_CORE_DIR)/tinymcu_tb_mult_cpu.vhd
 MULT_CPU_TB       := tb_mult_cpu
 
@@ -118,9 +149,20 @@ DIV_TB       := tb_div
 # MULT_CPU_ASM/MULT_CPU_SIM_SRCS: asm_div.py has no checks-file
 # counterpart to regenerate, the testbench's asserts are hardwired to
 # its fixed program (see both files' header comments).
-DIV_CPU_ASM      := $(SCRIPTS_DIR)/asm_div.py
+DIV_CPU_ASM      := $(SIM_SCRIPTS_DIR)/asm_div.py
 DIV_CPU_SIM_SRCS := $(SIM_CORE_DIR)/tinymcu_tb_div_cpu.vhd
 DIV_CPU_TB       := tb_div_cpu
+
+# "make sim SIM_TB=<name>" argument, e.g. SIM_TB=cpm_neo -> finds
+# sim/cpm-neo/tinymcu_tb_cpm_neo.vhd by TinyMCU's tinymcu_tb_<name>.vhd
+# naming convention (every existing testbench already follows it,
+# wherever under $(SIM_DIR) it lives) and simulates its tb_<name> entity.
+# A separate variable from $(TB) above -- that one is fixed to tb_core
+# for the classic run-core/elab/wave pipeline, which always regenerates
+# $(IMEM_VHD) from asm.py first; this generic target never touches
+# $(IMEM_VHD), it just simulates whatever ROM/RAM content already exists.
+SIM_TB ?=
+SIM_GENERIC_FILE := $(shell find $(SIM_DIR) -name "tinymcu_tb_$(SIM_TB).vhd" 2>/dev/null | head -1)
 
 GHDLFLAGS := $(STD) --workdir=$(BUILD) -P$(BUILD)
 
@@ -130,19 +172,19 @@ GHDLFLAGS := $(STD) --workdir=$(BUILD) -P$(BUILD)
 # IMEM_ADDR_WIDTH-sized) exceeds that once IMEM_ADDR_WIDTH grows past a
 # few KB of words, since GHDL stores each std_ulogic bit as a full byte
 # at simulation time (so a 32 KB ROM's word_t array costs 256 KB here,
-# not 32 KB) -- purely a simulator limitation, not a real hardware/BRAM
-# constraint.
+# not 32 KB).
 GHDLRUNFLAGS := --max-stack-alloc=1024
 
 .PHONY: all run run-core run-irq run-gpio run-timer run-uart run-mult run-mult-cpu \
         run-div run-div-cpu wave analyze analyze-irq analyze-gpio analyze-timer \
         analyze-uart analyze-mult analyze-mult-cpu analyze-div analyze-div-cpu \
-        asm asm-irq asm-mult-cpu asm-div-cpu clean help
+        asm asm-irq asm-mult-cpu asm-div-cpu clean help sim \
+        set-generics disable-ramdisk cpm-neo cpm-neo-disk cpm-neo-rom cpm-neo-ramdisk
 
 all: run
 
 # Full regression: every testbench in this Makefile, one after another.
-# Starts from a clean build directory -- switching between the
+# Starts from a clean build directory. Switching between the
 # differently-regenerated ROM programs (asm.py/asm_irq.py/asm_mult.py/
 # asm_div.py) that each of these writes into $(IMEM_VHD) can otherwise
 # hit stale GHDL library state ("file X has changed and must be
@@ -159,14 +201,73 @@ run: clean
 	$(MAKE) run-div
 	$(MAKE) run-div-cpu
 
+# Patches RAM_ADDR_WIDTH's, RAMDISK_ADDR_WIDTH's and RAMDISK_ENABLE's
+# generic defaults in both VHDL files that declare them (RAMDISK_ENABLE
+# is set to true here. tinymcu_cpu.vhd's u_addr_decoder/u_ramdisk
+# generate blocks gate on it, see tinymcu_addr_decoder.vhd's comment on
+# its own RAMDISK_ENABLE generic). Only ever touches the value itself --
+# everything else in either file (formatting, other generics, comments)
+# is left untouched. A generic default change here needs a Vivado
+# re-synthesis to actually take effect on hardware; GHDL simulation picks
+# it up on its next analyze.
+set-generics:
+	sed -i -E \
+		-e 's/(RAM_ADDR_WIDTH[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*)[0-9]+/\1$(RAM_ADDR_WIDTH)/' \
+		-e 's/(RAMDISK_ADDR_WIDTH[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*)[0-9]+/\1$(RAMDISK_ADDR_WIDTH)/' \
+		-e 's/(RAMDISK_ENABLE[[:space:]]*:[[:space:]]*boolean[[:space:]]*:=[[:space:]]*)(true|false)/\1true/' \
+		$(CPU_VHD)
+	sed -i -E \
+		-e 's/(RAM_ADDR_WIDTH[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*)[0-9]+/\1$(RAM_ADDR_WIDTH)/' \
+		-e 's/(RAMDISK_ADDR_WIDTH[[:space:]]*:[[:space:]]*integer[[:space:]]*:=[[:space:]]*)[0-9]+/\1$(RAMDISK_ADDR_WIDTH)/' \
+		-e 's/(RAMDISK_ENABLE[[:space:]]*:[[:space:]]*boolean[[:space:]]*:=[[:space:]]*)(true|false)/\1true/' \
+		$(TOP_VHD)
+
+# Classic (non-cpm-neo) builds shouldn't carry the RAM disk's u_ramdisk
+# SRAM block/BRAM around. Set RAMDISK_ENABLE=false (RAMDISK_ADDR_WIDTH
+# itself stays at its real value, see that generic's comment above) and
+# clear any stale sw/cpm-neo/ disk content a previous "make cpm-neo" run
+# left behind. Every ROM-regenerating target below (asm/asm-irq/
+# asm-mult-cpu/asm-div-cpu) runs this first, so it's covered by plain
+# "make"/"make run" without doing anything special.
+disable-ramdisk:
+	sed -i -E \
+		's/(RAMDISK_ENABLE[[:space:]]*:[[:space:]]*boolean[[:space:]]*:=[[:space:]]*)(true|false)/\1false/' \
+		$(CPU_VHD) $(TOP_VHD)
+	cd $(SCRIPTS_DIR) && $(PYTHON) -c "from lib.rom_writer import clear_disk; clear_disk()"
+
+# Delegates the actual sysgen build + "sysgen new" invocation to
+# $(CPM_NEO_DIR)/Makefile (its own, separate build concern), passing down
+# the sizes/platform derived above so the two Makefiles can't drift apart.
+# This Makefile is still the only place RAM_ADDR_WIDTH/
+# RAMDISK_ADDR_WIDTH themselves live.
+cpm-neo-disk: set-generics
+	$(MAKE) -C $(CPM_NEO_DIR) disk \
+		DISK_SIZE=$(CPM_NEO_DISK_SIZE) MEM_SIZE=$(CPM_NEO_MEM_SIZE) \
+		PLATFORM=$(CPM_NEO_PLATFORM) ARCH=$(CPM_NEO_ARCH)
+
+# Bakes the bootloader into $(IMEM_VHD)
+cpm-neo-rom: cpm-neo-disk
+	$(OBJCOPY) -O ihex --only-section=.boot $(CPM_NEO_BOOT_ELF) $(CPM_NEO_BOOT_HEX)
+	$(PYTHON) $(HEX2ROM) $(CPM_NEO_BOOT_HEX) --vhdl-file $(IMEM_VHD)
+
+# Bakes disk.img into $(SRAM_VHD)'s DISK constant
+cpm-neo-ramdisk: cpm-neo-disk
+	$(PYTHON) $(RAMDISK2ROM) $(CPM_NEO_DISK_IMG) --vhdl-file $(SRAM_VHD) --max-words=$(RAMDISK_MAX_WORDS)
+
+# Everything needed to get CP/M Neo actually booting on real hardware in
+# one command: set-generics, build the disk, bake both the bootloader and
+# the disk image into the RTL.
+cpm-neo: cpm-neo-rom cpm-neo-ramdisk
+
 $(BUILD):
 	mkdir -p $(BUILD)
 
 # Regenerates $(IMEM_VHD)'s PROGRAM constant and $(IMEM_TB_VHD)'s checks
 # from the single program definition in $(ASM). Always runs (no
 # timestamp-based skip): it's fast, and skipping it on stale timestamps
-# risks silently testing an out-of-date ROM.
-asm:
+# risks silently testing an out-of-date ROM. disable-ramdisk: see that
+# target's comment.
+asm: disable-ramdisk
 	$(PYTHON) $(ASM) --vhdl-file $(IMEM_VHD) --tb-file $(IMEM_TB_VHD)
 
 analyze: asm $(BUILD)
@@ -185,7 +286,7 @@ wave: elab
 
 # Regenerates $(IMEM_VHD)'s PROGRAM constant from $(IRQ_ASM) (the
 # IRQ/MRET round-trip program instead of asm.py's demo program).
-asm-irq:
+asm-irq: disable-ramdisk
 	$(PYTHON) $(IRQ_ASM) --vhdl-file $(IMEM_VHD)
 
 analyze-irq: asm-irq $(BUILD)
@@ -241,7 +342,7 @@ run-mult: elab-mult
 # Regenerates $(IMEM_VHD)'s PROGRAM constant from $(MULT_CPU_ASM) (the
 # M-extension pipeline-integration program instead of asm.py's demo
 # program).
-asm-mult-cpu:
+asm-mult-cpu: disable-ramdisk
 	$(PYTHON) $(MULT_CPU_ASM) --vhdl-file $(IMEM_VHD)
 
 analyze-mult-cpu: asm-mult-cpu $(BUILD)
@@ -267,7 +368,7 @@ run-div: elab-div
 # Regenerates $(IMEM_VHD)'s PROGRAM constant from $(DIV_CPU_ASM) (the
 # M-extension divide pipeline-integration program instead of asm.py's
 # demo program).
-asm-div-cpu:
+asm-div-cpu: disable-ramdisk
 	$(PYTHON) $(DIV_CPU_ASM) --vhdl-file $(IMEM_VHD)
 
 analyze-div-cpu: asm-div-cpu $(BUILD)
@@ -279,6 +380,25 @@ elab-div-cpu: analyze-div-cpu
 
 run-div-cpu: elab-div-cpu
 	$(GHDL) -r $(GHDLFLAGS) --work=work $(DIV_CPU_TB) $(GHDLRUNFLAGS)
+
+# Simulates any testbench by name, without needing a dedicated target
+# per testbench like the ones above. Does NOT regenerate $(IMEM_VHD) or
+# touch RAMDISK_ENABLE -- it simulates whatever ROM/RAM content is
+# already baked in (e.g. "make sim SIM_TB=cpm_neo" needs "make cpm-neo"
+# to have run first).
+sim: $(BUILD)
+	@if [ -z "$(SIM_TB)" ]; then \
+		echo "Usage: make sim SIM_TB=<name>  (e.g. make sim SIM_TB=cpm_neo for sim/cpm-neo/tinymcu_tb_cpm_neo.vhd's tb_cpm_neo)" >&2; \
+		exit 1; \
+	fi
+	@if [ -z "$(SIM_GENERIC_FILE)" ]; then \
+		echo "No testbench found matching tinymcu_tb_$(SIM_TB).vhd under $(SIM_DIR)" >&2; \
+		exit 1; \
+	fi
+	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
+	$(GHDL) -a $(GHDLFLAGS) --work=work $(SIM_GENERIC_FILE)
+	$(GHDL) -e $(GHDLFLAGS) --work=work tb_$(SIM_TB)
+	$(GHDL) -r $(GHDLFLAGS) --work=work tb_$(SIM_TB) $(GHDLRUNFLAGS)
 
 clean:
 	rm -rf $(BUILD)
@@ -307,9 +427,21 @@ help:
 	@echo "               analyze, elaborate and simulate $(DIV_CPU_TB)"
 	@echo "               (divider through the full CPU pipeline)"
 	@echo "  wave       - like run-core, but also dump $(BUILD)/$(TB).ghw"
+	@echo "  sim SIM_TB=<name> - simulate any testbench by name, e.g."
+	@echo "               SIM_TB=cpm_neo for tb_cpm_neo -- doesn't touch"
+	@echo "               $(IMEM_VHD)/RAMDISK_ENABLE"
 	@echo "  analyze    - syntax/semantic check only, no simulation"
 	@echo "  asm        - just regenerate the ROM/testbench from asm.py"
 	@echo "  asm-irq    - just regenerate the ROM from asm_irq.py"
 	@echo "  asm-mult-cpu - just regenerate the ROM from asm_mult.py"
 	@echo "  asm-div-cpu - just regenerate the ROM from asm_div.py"
+	@echo "  cpm-neo    - build sw/cpm-neo/ for the tinymcu platform and bake"
+	@echo "               both its bootloader and disk image into the RTL"
+	@echo "               (see the sw/cpm-neo/ integration comment above)"
+	@echo "  cpm-neo-rom     - just the bootloader half of cpm-neo"
+	@echo "  cpm-neo-ramdisk - just the disk-image half of cpm-neo"
+	@echo "  set-generics    - just patch RAM_ADDR_WIDTH/RAMDISK_ADDR_WIDTH/"
+	@echo "               RAMDISK_ENABLE (=true)"
+	@echo "  disable-ramdisk - set RAMDISK_ENABLE=false; runs automatically"
+	@echo "               before every asm* target"
 	@echo "  clean      - remove the build directory"

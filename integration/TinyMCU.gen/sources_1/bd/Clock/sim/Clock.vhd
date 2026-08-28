@@ -2,7 +2,7 @@
 --Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 ----------------------------------------------------------------------------------
 --Tool Version: Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
---Date        : Sat Aug 22 20:35:46 2026
+--Date        : Fri Aug 28 17:53:25 2026
 --Host        : daniel running 64-bit Ubuntu 22.04.5 LTS
 --Command     : generate_target Clock.bd
 --Design      : Clock
@@ -15,7 +15,9 @@ use UNISIM.VCOMPONENTS.ALL;
 entity Clock is
   port (
     ClockIn : in STD_LOGIC;
-    ClockOut : out STD_LOGIC;
+    ILA_Clock : out STD_LOGIC;
+    Locked : out STD_LOGIC;
+    MCU_Clock : out STD_LOGIC;
     Reset : in STD_LOGIC
   );
   attribute CORE_GENERATION_INFO : string;
@@ -29,28 +31,38 @@ architecture STRUCTURE of Clock is
   port (
     reset : in STD_LOGIC;
     clk_in1 : in STD_LOGIC;
-    clk_out1 : out STD_LOGIC
+    locked : out STD_LOGIC;
+    MCU : out STD_LOGIC;
+    ILA : out STD_LOGIC
   );
   end component Clock_clk_wiz_0_0;
-  signal ClockingWizard_clk_out1 : STD_LOGIC;
+  signal ClockingWizard_ILA : STD_LOGIC;
+  signal ClockingWizard_MCU : STD_LOGIC;
+  signal ClockingWizard_locked : STD_LOGIC;
   signal Reset_1 : STD_LOGIC;
   signal clk_100MHz_1 : STD_LOGIC;
   attribute X_INTERFACE_INFO : string;
   attribute X_INTERFACE_INFO of ClockIn : signal is "xilinx.com:signal:clock:1.0 CLK.CLOCKIN CLK";
   attribute X_INTERFACE_PARAMETER : string;
   attribute X_INTERFACE_PARAMETER of ClockIn : signal is "XIL_INTERFACENAME CLK.CLOCKIN, ASSOCIATED_RESET Reset, CLK_DOMAIN Clock_clk_100MHz, FREQ_HZ 125000000, FREQ_TOLERANCE_HZ 0, INSERT_VIP 0, PHASE 0.0";
-  attribute X_INTERFACE_INFO of ClockOut : signal is "xilinx.com:signal:clock:1.0 CLK.CLOCKOUT CLK";
-  attribute X_INTERFACE_PARAMETER of ClockOut : signal is "XIL_INTERFACENAME CLK.CLOCKOUT, CLK_DOMAIN /ClockingWizard_clk_out1, FREQ_HZ 16000000, FREQ_TOLERANCE_HZ 0, INSERT_VIP 0, PHASE 0.0";
+  attribute X_INTERFACE_INFO of ILA_Clock : signal is "xilinx.com:signal:clock:1.0 CLK.ILA_CLOCK CLK";
+  attribute X_INTERFACE_PARAMETER of ILA_Clock : signal is "XIL_INTERFACENAME CLK.ILA_CLOCK, CLK_DOMAIN /ClockingWizard_clk_out1, FREQ_HZ 100000000, FREQ_TOLERANCE_HZ 0, INSERT_VIP 0, PHASE 0.0";
+  attribute X_INTERFACE_INFO of MCU_Clock : signal is "xilinx.com:signal:clock:1.0 CLK.MCU_CLOCK CLK";
+  attribute X_INTERFACE_PARAMETER of MCU_Clock : signal is "XIL_INTERFACENAME CLK.MCU_CLOCK, CLK_DOMAIN /ClockingWizard_clk_out1, FREQ_HZ 16000000, FREQ_TOLERANCE_HZ 0, INSERT_VIP 0, PHASE 0.0";
   attribute X_INTERFACE_INFO of Reset : signal is "xilinx.com:signal:reset:1.0 RST.RESET RST";
   attribute X_INTERFACE_PARAMETER of Reset : signal is "XIL_INTERFACENAME RST.RESET, INSERT_VIP 0, POLARITY ACTIVE_HIGH";
 begin
-  ClockOut <= ClockingWizard_clk_out1;
+  ILA_Clock <= ClockingWizard_ILA;
+  Locked <= ClockingWizard_locked;
+  MCU_Clock <= ClockingWizard_MCU;
   Reset_1 <= Reset;
   clk_100MHz_1 <= ClockIn;
 ClockingWizard: component Clock_clk_wiz_0_0
      port map (
+      ILA => ClockingWizard_ILA,
+      MCU => ClockingWizard_MCU,
       clk_in1 => clk_100MHz_1,
-      clk_out1 => ClockingWizard_clk_out1,
+      locked => ClockingWizard_locked,
       reset => Reset_1
     );
 end STRUCTURE;

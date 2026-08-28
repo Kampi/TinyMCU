@@ -2,7 +2,7 @@
 // Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
 // --------------------------------------------------------------------------------
 // Tool Version: Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
-// Date        : Sat Aug 22 20:36:21 2026
+// Date        : Fri Aug 28 17:54:21 2026
 // Host        : daniel running 64-bit Ubuntu 22.04.5 LTS
 // Command     : write_verilog -force -mode funcsim
 //               /home/daniel/Projects/CPU/integration/TinyMCU.gen/sources_1/bd/Clock/ip/Clock_clk_wiz_0_0/Clock_clk_wiz_0_0_sim_netlist.v
@@ -15,43 +15,57 @@
 
 (* NotValidForBitStream *)
 module Clock_clk_wiz_0_0
-   (clk_out1,
+   (MCU,
+    ILA,
     reset,
+    locked,
     clk_in1);
-  output clk_out1;
+  output MCU;
+  output ILA;
   input reset;
+  output locked;
   input clk_in1;
 
+  wire ILA;
+  wire MCU;
   (* IBUF_LOW_PWR *) wire clk_in1;
-  wire clk_out1;
+  wire locked;
   wire reset;
 
   Clock_clk_wiz_0_0_clk_wiz inst
-       (.clk_in1(clk_in1),
-        .clk_out1(clk_out1),
+       (.ILA(ILA),
+        .MCU(MCU),
+        .clk_in1(clk_in1),
+        .locked(locked),
         .reset(reset));
 endmodule
 
 module Clock_clk_wiz_0_0_clk_wiz
-   (clk_out1,
+   (MCU,
+    ILA,
     reset,
+    locked,
     clk_in1);
-  output clk_out1;
+  output MCU;
+  output ILA;
   input reset;
+  output locked;
   input clk_in1;
 
+  wire ILA;
+  wire ILA_Clock_clk_wiz_0_0;
+  wire MCU;
+  wire MCU_Clock_clk_wiz_0_0;
   wire clk_in1;
   wire clk_in1_Clock_clk_wiz_0_0;
-  wire clk_out1;
-  wire clk_out1_Clock_clk_wiz_0_0;
   wire clkfbout_Clock_clk_wiz_0_0;
   wire clkfbout_buf_Clock_clk_wiz_0_0;
+  wire locked;
   wire reset;
   wire NLW_mmcm_adv_inst_CLKFBOUTB_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKFBSTOPPED_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED;
-  wire NLW_mmcm_adv_inst_CLKOUT1_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKOUT2_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKOUT2B_UNCONNECTED;
@@ -61,7 +75,6 @@ module Clock_clk_wiz_0_0_clk_wiz
   wire NLW_mmcm_adv_inst_CLKOUT5_UNCONNECTED;
   wire NLW_mmcm_adv_inst_CLKOUT6_UNCONNECTED;
   wire NLW_mmcm_adv_inst_DRDY_UNCONNECTED;
-  wire NLW_mmcm_adv_inst_LOCKED_UNCONNECTED;
   wire NLW_mmcm_adv_inst_PSDONE_UNCONNECTED;
   wire [15:0]NLW_mmcm_adv_inst_DO_UNCONNECTED;
 
@@ -80,8 +93,12 @@ module Clock_clk_wiz_0_0_clk_wiz
         .O(clk_in1_Clock_clk_wiz_0_0));
   (* BOX_TYPE = "PRIMITIVE" *) 
   BUFG clkout1_buf
-       (.I(clk_out1_Clock_clk_wiz_0_0),
-        .O(clk_out1));
+       (.I(MCU_Clock_clk_wiz_0_0),
+        .O(MCU));
+  (* BOX_TYPE = "PRIMITIVE" *) 
+  BUFG clkout2_buf
+       (.I(ILA_Clock_clk_wiz_0_0),
+        .O(ILA));
   (* BOX_TYPE = "PRIMITIVE" *) 
   MMCME2_ADV #(
     .BANDWIDTH("OPTIMIZED"),
@@ -94,7 +111,7 @@ module Clock_clk_wiz_0_0_clk_wiz
     .CLKOUT0_DUTY_CYCLE(0.500000),
     .CLKOUT0_PHASE(0.000000),
     .CLKOUT0_USE_FINE_PS("FALSE"),
-    .CLKOUT1_DIVIDE(1),
+    .CLKOUT1_DIVIDE(10),
     .CLKOUT1_DUTY_CYCLE(0.500000),
     .CLKOUT1_PHASE(0.000000),
     .CLKOUT1_USE_FINE_PS("FALSE"),
@@ -141,9 +158,9 @@ module Clock_clk_wiz_0_0_clk_wiz
         .CLKIN2(1'b0),
         .CLKINSEL(1'b1),
         .CLKINSTOPPED(NLW_mmcm_adv_inst_CLKINSTOPPED_UNCONNECTED),
-        .CLKOUT0(clk_out1_Clock_clk_wiz_0_0),
+        .CLKOUT0(MCU_Clock_clk_wiz_0_0),
         .CLKOUT0B(NLW_mmcm_adv_inst_CLKOUT0B_UNCONNECTED),
-        .CLKOUT1(NLW_mmcm_adv_inst_CLKOUT1_UNCONNECTED),
+        .CLKOUT1(ILA_Clock_clk_wiz_0_0),
         .CLKOUT1B(NLW_mmcm_adv_inst_CLKOUT1B_UNCONNECTED),
         .CLKOUT2(NLW_mmcm_adv_inst_CLKOUT2_UNCONNECTED),
         .CLKOUT2B(NLW_mmcm_adv_inst_CLKOUT2B_UNCONNECTED),
@@ -159,7 +176,7 @@ module Clock_clk_wiz_0_0_clk_wiz
         .DO(NLW_mmcm_adv_inst_DO_UNCONNECTED[15:0]),
         .DRDY(NLW_mmcm_adv_inst_DRDY_UNCONNECTED),
         .DWE(1'b0),
-        .LOCKED(NLW_mmcm_adv_inst_LOCKED_UNCONNECTED),
+        .LOCKED(locked),
         .PSCLK(1'b0),
         .PSDONE(NLW_mmcm_adv_inst_PSDONE_UNCONNECTED),
         .PSEN(1'b0),

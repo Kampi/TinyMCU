@@ -17,9 +17,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from lib.rom_writer import DEFAULT_VHDL_FILE, generate_program_block, splice_vhdl
+from lib.rom_writer import DEFAULT_VHDL_FILE, clear_disk, generate_program_block, splice_vhdl
 
-# Matches tinymcu_imem_bootrom's default ADDR_WIDTH => 13 (2**13 words)
+# Matches tinymcu_imem_bootrom's default ADDR_WIDTH
 DEFAULT_MAX_WORDS = 8192
 
 
@@ -121,6 +121,8 @@ if __name__ == "__main__":
             raise ValueError(f"{args.hexfile}: no data records found")
         program_block = generate_program_block(words)
         splice_vhdl(args.vhdl_file, program_block)
+
+        clear_disk()
     except (ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         sys.exit(1)
