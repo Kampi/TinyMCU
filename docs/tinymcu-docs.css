@@ -239,6 +239,38 @@ table.map td.desc code {
   font-weight: 600;
 }
 
+/* ---------- table.bits (compact value/meaning enumerations, nested
+   inside a table.map desc/encoding cell -- e.g. "1 = output, 0 =
+   input") ---------- */
+table.bits {
+  border-collapse: collapse;
+  width: auto;
+  font-size: 12px;
+  margin: 6px 0 2px;
+}
+table.bits th, table.bits td {
+  padding: 3px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+table.bits thead th {
+  color: var(--ink-faint);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: "IBM Plex Mono", monospace;
+  border-bottom: 1px solid var(--line-strong);
+}
+table.bits tbody tr:last-child td { border-bottom: none; }
+table.bits td.val {
+  font-family: "IBM Plex Mono", monospace;
+  font-weight: 600;
+  color: var(--accent-ink);
+  white-space: nowrap;
+}
+
 /* ---------- table.timing (cycle-by-cycle traces) ---------- */
 .timing-wrap {
   overflow-x: auto;

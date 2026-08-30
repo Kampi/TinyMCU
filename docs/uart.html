@@ -112,15 +112,37 @@
         <tbody>
           <tr>
             <td class="reg">0x00</td><td class="field">CONFIG</td><td><span class="rw rw-rw">RW</span></td>
-            <td class="desc">Bits 1:0 = data bits (<code>databits_reg</code>); bits 3:2 = stop bits (<code>stopbits_reg</code>); bits 5:4 = parity (<code>parity_reg</code>); bit 6 = RTS enable; bit 7 = CTS enable. See Framing below.</td>
+            <td class="desc">
+              See Framing below.
+              <table class="bits">
+                <thead><tr><th>Bits</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">1:0</td><td>Data bits</td></tr>
+                  <tr><td class="val">3:2</td><td>Stop bits</td></tr>
+                  <tr><td class="val">5:4</td><td>Parity</td></tr>
+                  <tr><td class="val">6</td><td>RTS enable</td></tr>
+                  <tr><td class="val">7</td><td>CTS enable</td></tr>
+                </tbody>
+              </table>
+            </td>
           </tr>
           <tr>
             <td class="reg">0x04</td><td class="field">BAUDRATE</td><td><span class="rw rw-rw">RW</span></td>
-            <td class="desc">Number of <code>clk_i</code> cycles per UART bit. There is no hardware divider - software computes <code>clk_i</code> frequency / desired baud rate and writes the raw cycle count here.</td>
+            <td class="desc">Number of <code>clk_i</code> cycles per UART bit. There is no hardware divider; software computes <code>clk_i</code> frequency / desired baud rate and writes the raw cycle count here.</td>
           </tr>
           <tr>
             <td class="reg">0x08</td><td class="field">STATUS</td><td><span class="rw rw-ro">RO</span></td>
-            <td class="desc">Bit 0 = TX_ACTIVE; bit 1 = RX_READY, a received byte is waiting in RX_DATA (cleared by reading RX_DATA); bit 2 = PARITY_ERROR on the last received byte. Not in the register-write process's case statement, so writes are silently dropped.</td>
+            <td class="desc">
+              Not in the register-write process's case statement, so writes are silently dropped.
+              <table class="bits">
+                <thead><tr><th>Bit</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">0</td><td>TX_ACTIVE</td></tr>
+                  <tr><td class="val">1</td><td>RX_READY, a received byte is waiting in RX_DATA (cleared by reading RX_DATA)</td></tr>
+                  <tr><td class="val">2</td><td>PARITY_ERROR on the last received byte</td></tr>
+                </tbody>
+              </table>
+            </td>
           </tr>
           <tr>
             <td class="reg">0x0C</td><td class="field">TX_DATA</td><td><span class="rw rw-wo">WO</span></td>
@@ -132,11 +154,27 @@
           </tr>
           <tr>
             <td class="reg">0x14</td><td class="field">INT_CONFIG</td><td><span class="rw rw-rw">RW</span></td>
-            <td class="desc">Bit 0 = RX_READY interrupt enable. Bits 31:1 unused.</td>
+            <td class="desc">
+              <table class="bits">
+                <thead><tr><th>Bits</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">0</td><td>RX_READY interrupt enable</td></tr>
+                  <tr><td class="val">31:1</td><td>Unused</td></tr>
+                </tbody>
+              </table>
+            </td>
           </tr>
           <tr>
             <td class="reg">0x18</td><td class="field">INT_STATUS</td><td><span class="rw rw-rw">RW</span></td>
-            <td class="desc">Bit 0 = RX_READY interrupt flag, tied to STATUS.RX_READY (see Interrupts below). Write 0 to clear - only sticks once STATUS.RX_READY has gone low too, i.e. RX_DATA has been read.</td>
+            <td class="desc">
+              <table class="bits">
+                <thead><tr><th>Bits</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">0</td><td>RX_READY interrupt flag, tied to STATUS.RX_READY (see Interrupts below). Write 0 to clear it; the clear only sticks once STATUS.RX_READY has also gone low, i.e. once RX_DATA has been read.</td></tr>
+                  <tr><td class="val">31:1</td><td>Unused</td></tr>
+                </tbody>
+              </table>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -152,7 +190,7 @@
       Three small lookup functions turn <span class="ref">CONFIG</span>'s 2-bit sub-fields into the
       actual values the Tx/Rx state machines use. Both <span class="ref">Tx_Idle</span> and
       <span class="ref">Rx_Idle</span> call all three at the start of every frame, latching the
-      result into local variables for that one transmission/reception - a
+      result into local variables for that one transmission/reception, so a
       <span class="ref">CONFIG</span> write mid-frame never disturbs a frame already in flight.
     </p>
 
@@ -162,17 +200,46 @@
         <tbody>
           <tr>
             <td class="field">Data bits</td><td class="reg">1:0</td>
-            <td class="desc">00 = 8, 01 = 7, 10 = 9, 11 = unused (falls back to 8)</td>
+            <td class="desc">
+              <table class="bits">
+                <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">00</td><td>8</td></tr>
+                  <tr><td class="val">01</td><td>7</td></tr>
+                  <tr><td class="val">10</td><td>9</td></tr>
+                  <tr><td class="val">11</td><td>Unused (falls back to 8)</td></tr>
+                </tbody>
+              </table>
+            </td>
             <td class="reg">databits_reg</td>
           </tr>
           <tr>
             <td class="field">Stop bits</td><td class="reg">3:2</td>
-            <td class="desc">00 = 1, 01 = 2, 10/11 = unused (falls back to 1)</td>
+            <td class="desc">
+              <table class="bits">
+                <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">00</td><td>1</td></tr>
+                  <tr><td class="val">01</td><td>2</td></tr>
+                  <tr><td class="val">10/11</td><td>Unused (falls back to 1)</td></tr>
+                </tbody>
+              </table>
+            </td>
             <td class="reg">stopbits_reg</td>
           </tr>
           <tr>
             <td class="field">Parity</td><td class="reg">5:4</td>
-            <td class="desc">00 = none, 01 = even, 10 = odd, 11 = unused (falls back to none)</td>
+            <td class="desc">
+              <table class="bits">
+                <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">00</td><td>None</td></tr>
+                  <tr><td class="val">01</td><td>Even</td></tr>
+                  <tr><td class="val">10</td><td>Odd</td></tr>
+                  <tr><td class="val">11</td><td>Unused (falls back to None)</td></tr>
+                </tbody>
+              </table>
+            </td>
             <td class="reg">parity_reg</td>
           </tr>
         </tbody>
@@ -227,7 +294,7 @@
       metastable sample on the async input line can't propagate into the frame logic.
       <span class="ref">Rx_Idle</span> watches for the falling start-bit edge, then
       <span class="ref">Rx_Start_Bit</span> waits to the middle of the bit
-      (<code>(BAUDRATE-1)/2</code> cycles) and re-checks the line is still low before committing -
+      (<code>(BAUDRATE-1)/2</code> cycles) and re-checks the line is still low before committing;
       a mid-bit glitch that already returned high is treated as a false start and the machine
       goes straight back to <span class="ref">Rx_Idle</span>.
     </p>
@@ -236,7 +303,7 @@
       slot, LSB-first into <span class="ref">rx_data</span>. If parity is configured,
       <span class="ref">Rx_Parity_Bit</span> recomputes the expected parity from the received data
       bits and compares it against the bit actually seen on the wire, latching any mismatch into
-      <span class="ref">STATUS</span>.PARITY_ERROR - the byte itself is still accepted either way.
+      <span class="ref">STATUS</span>.PARITY_ERROR; the byte itself is still accepted either way.
       On the final stop bit, <span class="ref">reg_rx_data</span> is updated and
       <span class="ref">STATUS</span>.RX_READY set.
     </p>
@@ -252,7 +319,7 @@
       <span class="ref">STATUS</span>.RX_READY = <code>'1'</code> and
       <span class="ref">INT_CONFIG</span> bit 0 is set, the "set the interrupt flags" branch
       re-asserts <span class="ref">INT_STATUS</span> bit 0. A software write to
-      <span class="ref">INT_STATUS</span> only wins the one cycle it happens on - if the byte is
+      <span class="ref">INT_STATUS</span> only wins the one cycle it happens on: if the byte is
       still unread the very next cycle re-fires the flag.
     </p>
 
@@ -267,7 +334,7 @@
       </table>
     </div>
     <p class="lead">
-      Clearing at "write 0" (second column) doesn't stick - <span class="ref">STATUS</span>.RX_READY is
+      Clearing at "write 0" (second column) doesn't stick: <span class="ref">STATUS</span>.RX_READY is
       still <code>'1'</code>, so the flag is back to <code>'1'</code> one cycle later. Only once
       <span class="ref">RX_DATA</span> has actually been read does a following clear hold, since the
       "set" branch's condition is no longer true.
@@ -283,25 +350,25 @@
     </div>
     <div class="table-wrap">
       <table class="api">
-        <thead><tr><th>Function</th><th>Description</th><th>Register effect</th></tr></thead>
+        <thead><tr><th>Function</th><th>Description</th></tr></thead>
         <tbody>
-          <tr class="api-group"><td colspan="3">Configuration</td></tr>
-          <tr><td class="fn">tinymcu_uart_init(clks_per_bit, databits, stopbits, parity)</td><td class="desc">Configure framing and baud rate, ready to transmit.</td><td class="eff">CONFIG = databits|stopbits|parity, BAUDRATE = clks_per_bit</td></tr>
+          <tr class="api-group"><td colspan="2">Configuration</td></tr>
+          <tr><td class="fn">tinymcu_uart_init(clks_per_bit, databits, stopbits, parity)</td><td class="desc">Configure framing and baud rate, ready to transmit.</td></tr>
 
-          <tr class="api-group"><td colspan="3">Transmit</td></tr>
-          <tr><td class="fn">tinymcu_uart_putc(c)</td><td class="desc">Send a single byte, blocking until any transmission in progress finishes first.</td><td class="eff">wait on STATUS.TX_ACTIVE, then TX_DATA = c</td></tr>
-          <tr><td class="fn">tinymcu_uart_puts(s)</td><td class="desc">Send a NUL-terminated string, one byte at a time via putc().</td><td class="eff">repeated putc()</td></tr>
+          <tr class="api-group"><td colspan="2">Transmit</td></tr>
+          <tr><td class="fn">tinymcu_uart_putc(c)</td><td class="desc">Send a single byte, blocking until any transmission in progress finishes first.</td></tr>
+          <tr><td class="fn">tinymcu_uart_puts(s)</td><td class="desc">Send a NUL-terminated string, one byte at a time via putc().</td></tr>
 
-          <tr class="api-group"><td colspan="3">Receive</td></tr>
-          <tr><td class="fn">tinymcu_uart_rx_ready(void)</td><td class="desc">Check whether a received byte is waiting in RX_DATA.</td><td class="eff">STATUS bit 1</td></tr>
-          <tr><td class="fn">tinymcu_uart_rx_parity_error(void)</td><td class="desc">Check whether the last received byte failed its parity check.</td><td class="eff">STATUS bit 2</td></tr>
-          <tr><td class="fn">tinymcu_uart_getc(void)</td><td class="desc">Receive a single byte, blocking until one is available. Reading RX_DATA is what clears STATUS.RX_READY.</td><td class="eff">wait on rx_ready(), then read RX_DATA</td></tr>
+          <tr class="api-group"><td colspan="2">Receive</td></tr>
+          <tr><td class="fn">tinymcu_uart_rx_ready(void)</td><td class="desc">Check whether a received byte is waiting in RX_DATA.</td></tr>
+          <tr><td class="fn">tinymcu_uart_rx_parity_error(void)</td><td class="desc">Check whether the last received byte failed its parity check.</td></tr>
+          <tr><td class="fn">tinymcu_uart_getc(void)</td><td class="desc">Receive a single byte, blocking until one is available. Reading RX_DATA is what clears STATUS.RX_READY.</td></tr>
 
-          <tr class="api-group"><td colspan="3">Interrupts</td></tr>
-          <tr><td class="fn">tinymcu_uart_irq_enable(void)</td><td class="desc">Enable the RX_READY interrupt.</td><td class="eff">INT_CONFIG bit 0 = 1</td></tr>
-          <tr><td class="fn">tinymcu_uart_irq_disable(void)</td><td class="desc">Disable the RX_READY interrupt. Does not clear an already-pending flag.</td><td class="eff">INT_CONFIG bit 0 = 0</td></tr>
-          <tr><td class="fn">tinymcu_uart_irq_pending(void)</td><td class="desc">Check whether the RX_READY interrupt flag is currently set.</td><td class="eff">INT_STATUS bit 0</td></tr>
-          <tr><td class="fn">tinymcu_uart_irq_clear(void)</td><td class="desc">Clear the RX_READY interrupt flag. Only sticks once RX_DATA has been read - see Interrupts above.</td><td class="eff">INT_STATUS bit 0 = 0</td></tr>
+          <tr class="api-group"><td colspan="2">Interrupts</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_enable(void)</td><td class="desc">Enable the RX_READY interrupt.</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_disable(void)</td><td class="desc">Disable the RX_READY interrupt. Does not clear an already-pending flag.</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_pending(void)</td><td class="desc">Check whether the RX_READY interrupt flag is currently set.</td></tr>
+          <tr><td class="fn">tinymcu_uart_irq_clear(void)</td><td class="desc">Clear the RX_READY interrupt flag. Only sticks once RX_DATA has been read, see Interrupts above.</td></tr>
         </tbody>
       </table>
     </div>
@@ -318,7 +385,7 @@
           Because <span class="ref">INT_STATUS</span> is tied to <span class="ref">STATUS</span>.RX_READY,
           an ISR must call <span class="ref">tinymcu_uart_getc()</span> (or read
           <span class="ref">RX_DATA</span> directly) before
-          <span class="ref">tinymcu_uart_irq_clear()</span> - clearing first just gets overwritten
+          <span class="ref">tinymcu_uart_irq_clear()</span>, since clearing first just gets overwritten
           the next cycle.
         </p>
       </div>
@@ -326,7 +393,7 @@
         <div class="note-head">No hardware baud divider</div>
         <p>
           <span class="ref">BAUDRATE</span> holds the raw cycle count per bit, not a prescaler
-          value - the caller computes <code>clk_i</code> frequency / desired baud rate itself
+          value; the caller computes <code>clk_i</code> frequency / desired baud rate itself
           before writing it.
         </p>
       </div>
@@ -334,7 +401,7 @@
         <div class="note-head">CONFIG changes never disturb an in-flight frame</div>
         <p>
           <span class="ref">databits_reg</span>/<span class="ref">stopbits_reg</span>/<span class="ref">parity_reg</span>
-          are only evaluated once, in <span class="ref">Tx_Idle</span>/<span class="ref">Rx_Idle</span> -
+          are only evaluated once, in <span class="ref">Tx_Idle</span>/<span class="ref">Rx_Idle</span>:
           a new frame always picks up the latest <span class="ref">CONFIG</span>, but one already
           in progress keeps running with whatever it latched at its start.
         </p>
@@ -342,7 +409,7 @@
       <div class="note">
         <div class="note-head">Only one interrupt source</div>
         <p>
-          There's no TX_ACTIVE or PARITY_ERROR interrupt - <span class="ref">INT_CONFIG</span>/<span class="ref">INT_STATUS</span>
+          There's no TX_ACTIVE or PARITY_ERROR interrupt: <span class="ref">INT_CONFIG</span>/<span class="ref">INT_STATUS</span>
           only ever cover RX_READY (bit 0), unlike GPIO's one-bit-per-pin scheme.
         </p>
       </div>

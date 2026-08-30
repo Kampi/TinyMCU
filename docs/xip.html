@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyMCU XIP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tinymcu-docs.css">
+
+<style>
+  /* ---------- Tables: page-specific width; td.reg holds byte offsets
+     (hex values, not identifiers), so it stays plain ink rather than
+     the shared .ref accent (docs/tinymcu-docs.css). ---------- */
+  table.map { min-width: 640px; }
+  table.map td.reg {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .rw {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 5px;
+  }
+  .rw.rw-rw { background: var(--accent-2-soft); color: var(--accent-2-ink); }
+  .rw.rw-ro { background: var(--surface-3); color: var(--ink-faint); }
+  .rw.rw-wo { background: var(--accent-3-soft); color: var(--accent-3-ink); }
+
+  /* ---------- Engine cards ---------- */
+  .engines {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) { .engines { grid-template-columns: 1fr; } }
+  .engine-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .engine-cond {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-ink);
+  }
+  .engine-title { font-weight: 700; font-size: 16px; }
+  .engine-desc { font-size: 13px; color: var(--ink-dim); }
+
+  /* ---------- API table: page-specific width ---------- */
+  table.api { min-width: 780px; }
+  .api-group {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--surface-2);
+  }
+  .api-group td { padding: 7px 12px; border-bottom: 1px solid var(--line-strong); }
+
+  /* ---------- Print: page-specific additions on top of the shared
+     print base (docs/tinymcu-docs.css) ---------- */
+  @media print {
+    .engine-card { box-shadow: none; }
+    .engine-card, .note { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <div class="eyebrow">TinyMCU &middot; rtl/core/tinymcu_imem_xip.vhd</div>
+    <h1>XIP</h1>
+    <p>
+      Dedicated SPI master for execute-in-place, separate from any general-purpose
+      peripheral SPI. Two mutually exclusive engines share one physical bus, switched
+      by <span class="ref">CONFIG</span>'s <span class="ref">ENABLE</span> bit: a fetch
+      engine that lets the CPU execute code directly out of an external SPI NOR flash,
+      and a generic byte-at-a-time write engine for whatever setup that flash needs
+      first.
+    </p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Engines</h2>
+      <span class="section-sub">CONFIG bit 2, never both active at once</span>
+    </div>
+
+    <div class="engines">
+      <div class="engine-card">
+        <span class="engine-cond">ENABLE = 1</span>
+        <span class="engine-title">Fetch engine</span>
+        <span class="engine-desc">
+          Once enabled, jumping into the flash window (see memory.html) starts fetching
+          instructions from the external flash automatically. There is no further
+          register interaction: the hardware issues one 0x03 (READ) command per cache
+          miss on its own. The write engine is disabled while this one is active.
+        </span>
+      </div>
+      <div class="engine-card">
+        <span class="engine-cond">ENABLE = 0</span>
+        <span class="engine-title">Write engine</span>
+        <span class="engine-desc">
+          A generic byte-at-a-time SPI master for whatever setup the flash needs before
+          XIP can be turned on (Write Enable, Page Program, etc). This controller
+          doesn't know or care about SPI NOR opcodes, it just shifts bytes:
+          <span class="ref">CS_ASSERT</span> holds chip-select across a multi-byte
+          command, and each <span class="ref">TX_DATA</span> write starts one 8-bit,
+          full-duplex transfer.
+        </span>
+      </div>
+    </div>
+
+    <div class="note">
+      <div class="note-head">Switching engines mid-fetch</div>
+      <p>
+        Clearing <span class="ref">ENABLE</span> while the CPU is executing out of the
+        flash window cuts off the instruction stream it's currently running from.
+        Software only ever switches engines while running from Boot ROM or RAM, never
+        from flash itself, the same rule tinymcu_xip.h documents on
+        tinymcu_xip_fetch_enable()/tinymcu_xip_fetch_disable().
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Register Map</h2>
+      <span class="section-sub">0x0400_0300-0x0400_03FF</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="map">
+        <thead><tr><th>Offset</th><th>Name</th><th></th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="reg">0x00</td><td class="field">CONFIG</td><td><span class="rw rw-rw">RW</span></td>
+            <td class="desc">
+              Shared by both engines; bits 12 and above are write engine only.
+              <table class="bits">
+                <thead><tr><th>Bits</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">0</td><td>CPHA</td></tr>
+                  <tr><td class="val">1</td><td>CPOL</td></tr>
+                  <tr><td class="val">2</td><td>ENABLE: 1 = fetch engine active, 0 = write engine active</td></tr>
+                  <tr><td class="val">3</td><td>Bit order: 0 = MSB first, 1 = LSB first</td></tr>
+                  <tr><td class="val">11:4</td><td>CLKDIV. SCLK toggles every (CLKDIV + 1) clk_i cycles, i.e. one full SCLK period is 2 * (CLKDIV + 1) clk_i cycles.</td></tr>
+                  <tr><td class="val">12</td><td>CS_ASSERT, write engine only. Software sets 1 before the first TX_DATA byte of a multi-byte command and 0 after the last, holding ss_n_o low for the whole sequence in between. A TX_DATA write while CS_ASSERT is 0 is ignored.</td></tr>
+                  <tr><td class="val">15:13</td><td>Unused</td></tr>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="reg">0x04</td><td class="field">STATUS</td><td><span class="rw rw-ro">RO</span></td>
+            <td class="desc">
+              <table class="bits">
+                <thead><tr><th>Bit</th><th>Meaning</th></tr></thead>
+                <tbody>
+                  <tr><td class="val">0</td><td>1 while either engine's SPI transaction is in progress</td></tr>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="reg">0x08</td><td class="field">TX_DATA</td><td><span class="rw rw-wo">WO</span></td>
+            <td class="desc">Write engine only. Writing starts one 8-bit, full-duplex transfer, sent MSB- or LSB-first per CONFIG's bit-order field. Ignored unless CS_ASSERT is set. Reads back as 0.</td>
+          </tr>
+          <tr>
+            <td class="reg">0x0C</td><td class="field">RX_DATA</td><td><span class="rw rw-ro">RO</span></td>
+            <td class="desc">Write engine only. The byte shifted in over miso_i during the most recently completed write-engine transfer.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Software API</h2>
+      <span class="section-sub">sw/lib/tinymcu_xip.h</span>
+    </div>
+    <div class="table-wrap">
+      <table class="api">
+        <thead><tr><th>Function</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr class="api-group"><td colspan="2">Configuration</td></tr>
+          <tr><td class="fn">tinymcu_xip_configure(cpol, cpha, lsb_first, clkdiv)</td><td class="desc">Set the SPI clock mode and divider shared by both engines. Leaves ENABLE and CS_ASSERT untouched.</td></tr>
+          <tr><td class="fn">tinymcu_xip_busy(void)</td><td class="desc">Check whether either engine's SPI transaction is currently in progress.</td></tr>
+
+          <tr class="api-group"><td colspan="2">Fetch engine</td></tr>
+          <tr><td class="fn">tinymcu_xip_fetch_enable(void)</td><td class="desc">Enable the fetch engine, disabling the write engine. Only call this while executing from Boot ROM or RAM.</td></tr>
+          <tr><td class="fn">tinymcu_xip_fetch_disable(void)</td><td class="desc">Disable the fetch engine, enabling the write engine. Never call this while executing out of the flash window.</td></tr>
+
+          <tr class="api-group"><td colspan="2">Write engine</td></tr>
+          <tr><td class="fn">tinymcu_xip_cs_assert(void)</td><td class="desc">Assert chip-select, starting a multi-byte command session.</td></tr>
+          <tr><td class="fn">tinymcu_xip_cs_release(void)</td><td class="desc">Release chip-select, ending the current command session.</td></tr>
+          <tr><td class="fn">tinymcu_xip_transfer_byte(tx_byte)</td><td class="desc">Shift one byte out over MOSI, blocking until complete, and return whatever came back on MISO during that same transfer. tinymcu_xip_cs_assert() must already have been called.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <div class="note-head">A minimal boot sequence</div>
+      <p>
+        Software configures the clock mode, then either enables the fetch engine and
+        jumps into the flash window, or talks to the flash directly first:
+      </p>
+      <p>
+        <code>tinymcu_xip_configure(0, 0, 0, 0);<br>
+        tinymcu_xip_fetch_enable();<br>
+        /* jump into XIP_FLASH_BASE..XIP_FLASH_END now */</code>
+      </p>
+      <p>
+        or, to program the flash first from the write engine (CONFIG.ENABLE starts at
+        0 after reset, so no explicit disable is needed on a cold boot):
+      </p>
+      <p>
+        <code>tinymcu_xip_configure(0, 0, 0, 0);<br>
+        tinymcu_xip_cs_assert();<br>
+        tinymcu_xip_transfer_byte(0x02); /* Page Program */<br>
+        tinymcu_xip_transfer_byte(addr_hi);<br>
+        tinymcu_xip_transfer_byte(addr_mid);<br>
+        tinymcu_xip_transfer_byte(addr_lo);<br>
+        tinymcu_xip_transfer_byte(data);<br>
+        tinymcu_xip_cs_release();<br>
+        tinymcu_xip_fetch_enable();</code>
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Notes</h2>
+    </div>
+    <div class="notes-grid">
+      <div class="note">
+        <div class="note-head">One entry, one cache</div>
+        <p>
+          The fetch engine holds only its most recently completed transfer
+          (<span class="ref">last_data</span>/<span class="ref">last_addr</span> in
+          tinymcu_imem_xip.vhd). A cache hit on the same address skips the SPI
+          transaction entirely; any other address triggers a fresh one.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">A fetch here stalls the pipeline</div>
+        <p>
+          Unlike Boot ROM/RAM's fixed one-cycle read, an XIP fetch takes a full SPI
+          transaction to complete, and <span class="ref">fetch_stall_o</span> holds the
+          whole pipeline for it. See pipeline.html's <span class="ref">fetch_stall</span>
+          card for why that stall is kept separate from an ordinary EX-stage bus wait.
+        </p>
+      </div>
+      <div class="note">
+        <div class="note-head">24-bit address only</div>
+        <p>
+          The fetch engine's opcode/address header is fixed at 8 bits of opcode plus 24
+          bits of address (see <span class="ref">XIP_TOTAL_BITS</span>), so the
+          addressable flash window tops out at 16 MB
+          (<span class="ref">XIP_FLASH_BASE</span>..<span class="ref">XIP_FLASH_END</span>
+          in tinymcu_pkg.vhd, see memory.html).
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="mono">rtl/core/tinymcu_imem_xip.vhd &middot; sw/lib/tinymcu_xip.h &middot; sw/lib/tinymcu_xip.c</span>
+  </footer>
+
+</main>
+</body>
+</html>

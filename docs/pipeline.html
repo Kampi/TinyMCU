@@ -187,7 +187,7 @@
     <p>
       IF &rarr; ID (buffer) &rarr; EX, built around a synchronous-read (BRAM-style) instruction
       memory. Every register read costs one cycle of latency, so the fetch address has to be
-      buffered one stage ahead of the instruction it produces - and every stall or redirect
+      buffered one stage ahead of the instruction it produces, and every stall or redirect
       has to unwind exactly that buffering to avoid losing an instruction. Signal names below
       match <code>tinymcu_cpu.vhd</code> directly.
     </p>
@@ -201,7 +201,7 @@
     <p class="lead">
       <span class="ref">pc_reg</span> always addresses the word being fetched <em>this</em> cycle. Because
       <span class="ref">tinymcu_imem</span>'s read is registered, the matching instruction doesn't arrive until
-      the next cycle - so <span class="ref">pc_if</span> exists purely to carry the address forward one
+      the next cycle, so <span class="ref">pc_if</span> exists purely to carry the address forward one
       cycle so it stays paired with <span class="ref">instr_if</span> when it lands.
     </p>
 
@@ -236,7 +236,7 @@
         </div>
         <div class="block reg">
           <span class="sig">pc_if</span>
-          <span class="desc">pc_reg, captured one cycle early - re-pairs with instr_if</span>
+          <span class="desc">pc_reg, captured one cycle early to re-pair with instr_if</span>
         </div>
         <div class="block reg">
           <span class="sig">instr_if</span>
@@ -275,25 +275,37 @@
 
     <div class="ctrl">
       <div class="ctrl-head"><span class="dot"></span>Hazard &amp; redirect logic</div>
-      <p class="ctrl-sub">Each card names the exact register from the datapath above that it drives - that's the box it "belongs to".</p>
+      <p class="ctrl-sub">Each card names the exact register from the datapath above that it drives; that's the box it "belongs to".</p>
       <div class="eqs">
         <div class="eq">
           <span class="name">stall</span>
-          <span class="rhs">(cpu_req.stb &amp; !cpu_rsp.ack) | mult_busy | div_busy</span>
+          <span class="rhs">ex_stall | fetch_stall</span>
           <span class="target">&rarr; pc_reg, pc_if, pc_ex, instr_ex</span>
-          <span class="note">freezes all three stages at once, verbatim</span>
+          <span class="note">freezes all three stages at once, verbatim, regardless of which term is asserted</span>
         </div>
         <div class="eq">
-          <span class="name">stall_d1</span>
-          <span class="rhs">reg(stall)</span>
+          <span class="name">ex_stall</span>
+          <span class="rhs">(cpu_req.stb &amp; !cpu_rsp.ack) | mult_busy | div_busy</span>
+          <span class="target">&rarr; ex_stall_d1</span>
+          <span class="note">the EX-stage instruction itself can't finish yet (bus wait, MUL/DIV busy)</span>
+        </div>
+        <div class="eq">
+          <span class="name">fetch_stall</span>
+          <span class="rhs">in_xip_window &amp; !xip_fetch_ready</span>
+          <span class="target">&rarr; stall (not ex_stall_d1)</span>
+          <span class="note">an in-flight XIP fetch isn't ready yet, deliberately kept out of ex_stall/ex_stall_d1, see the note below</span>
+        </div>
+        <div class="eq">
+          <span class="name">ex_stall_d1</span>
+          <span class="rhs">reg(ex_stall)</span>
           <span class="target">&rarr; resume_flush only</span>
-          <span class="note">internal timing helper, drives no pipeline register itself</span>
+          <span class="note">internal timing helper, drives no pipeline register itself; keyed on ex_stall, not the full stall</span>
         </div>
         <div class="eq">
           <span class="name">resume_flush</span>
-          <span class="rhs">stall_d1 &amp; !stall</span>
+          <span class="rhs">ex_stall_d1 &amp; !ex_stall</span>
           <span class="target">&rarr; pc_reg (rewind) + instr_ex (&rarr; NOP)</span>
-          <span class="note">fires the one cycle a stall just cleared</span>
+          <span class="note">fires the one cycle an EX-stage stall just cleared; never for fetch_stall alone</span>
         </div>
         <div class="eq">
           <span class="name">redirect</span>
@@ -315,16 +327,49 @@
         </div>
       </div>
     </div>
+
+    <div class="note">
+      <div class="note-head">Why fetch_stall doesn't drive resume_flush</div>
+      <p>
+        <span class="ref">ex_stall</span> (bus wait, MUL/DIV busy) stalls because the
+        instruction already sitting in EX can't finish. <span class="ref">pc_reg</span>/
+        <span class="ref">pc_if</span> were coasting speculatively down the correct linear
+        path the whole time, so once the stall clears, rewinding
+        <span class="ref">pc_reg</span> back to <span class="ref">pc_if</span> (
+        <span class="ref">resume_flush</span>) cleanly re-issues the fetch that would
+        otherwise be skipped. <span class="ref">fetch_stall</span> is different: it stalls
+        because <span class="ref">pc_if</span> itself, the fetch this engine is
+        currently waiting on, targets the XIP flash window and isn't ready yet. At that
+        point <span class="ref">pc_reg</span> may already hold the very next address (or,
+        right after a redirect into the flash window, a fresh jump target that hasn't
+        reached <span class="ref">pc_if</span> yet). Rewinding it to <span class="ref">pc_if</span>
+        here would silently discard that redirect and resume the stale, already-squashed
+        fall-through path instead, so <span class="ref">ex_stall_d1</span>/
+        <span class="ref">resume_flush</span> are deliberately keyed on
+        <span class="ref">ex_stall</span> alone, never on <span class="ref">fetch_stall</span>.
+      </p>
+      <p>
+        For the same reason, <span class="ref">tinymcu_imem_xip.vhd</span>'s own
+        <span class="ref">fetch_addr_i</span> is wired to <span class="ref">pc_if</span>, not
+        <span class="ref">pc_reg</span> (see memory.html's flash window entry), matching how
+        RAM/RAM disk arbitration already keys off <span class="ref">pc_if</span> in
+        <span class="ref">tinymcu_imem.vhd</span>. The XIP read engine holds only a
+        1-entry cache of its most recently completed fetch; tracking <span class="ref">pc_reg</span>
+        there let that entry get silently overwritten by a newer, unrelated request
+        before <span class="ref">pc_if</span> ever consumed the one it was actually
+        waiting for.
+      </p>
+    </div>
   </section>
 
   <section>
     <div class="section-head">
-      <h2>Timing - taken branch</h2>
+      <h2>Timing: taken branch</h2>
       <span class="section-sub">redirect resolves in EX, two fetches already in flight get squashed</span>
     </div>
     <p class="lead">
       Branch <span class="ref">B</span> resolves in EX at <span class="cyc">c3</span>. By then <span class="ref">pc_reg</span>
-      has already moved two steps past it - <span class="ref">C</span> and <span class="ref">D</span>
+      has already moved two steps past it: <span class="ref">C</span> and <span class="ref">D</span>
       were fetched speculatively down the not-taken path. <span class="ref">redirect</span> retargets
       <span class="ref">pc_reg</span> immediately, but the two wrong-path instructions already sitting
       in the pipe still have to drain as NOPs before target <span class="ref">X</span> reaches EX at <span class="cyc">c6</span>.
@@ -370,17 +415,22 @@
 
   <section>
     <div class="section-head">
-      <h2>Timing - stall then recover</h2>
+      <h2>Timing: stall then recover</h2>
       <span class="section-sub">e.g. MUL/DIV busy, or a load/store waiting on cpu_rsp.ack</span>
     </div>
     <p class="lead">
       <span class="ref">M</span> stalls EX for three cycles (<span class="cyc">c0</span>-<span class="cyc">c2</span>); the whole front end freezes
-      with it, so <span class="ref">N</span> - the instruction right behind it - sits
-      un-advanced in <span class="ref">pc_if</span> the entire time. The moment <span class="ref">stall</span>
-      drops, <span class="ref">resume_flush</span> fires for exactly one cycle: it rewinds
-      <span class="ref">pc_reg</span> back to <span class="ref">pc_if</span> instead of letting it
-      advance, re-issuing the fetch for <span class="ref">N</span> that would otherwise have been
-      silently skipped. Two bubbles later, <span class="ref">N</span> lands correctly in EX at <span class="cyc">c6</span>.
+      with it, so <span class="ref">N</span>, the instruction right behind it, sits
+      un-advanced in <span class="ref">pc_if</span> the entire time. This is an EX-stage stall
+      (bus wait or MUL/DIV busy), so <span class="ref">stall</span> and <span class="ref">ex_stall</span>
+      are identical throughout; <span class="ref">fetch_stall</span> never engages here. The moment
+      <span class="ref">ex_stall</span> drops, <span class="ref">resume_flush</span> fires for
+      exactly one cycle: it rewinds <span class="ref">pc_reg</span> back to
+      <span class="ref">pc_if</span> instead of letting it advance, re-issuing the fetch for
+      <span class="ref">N</span> that would otherwise have been silently skipped. Two bubbles
+      later, <span class="ref">N</span> lands correctly in EX at <span class="cyc">c6</span>.
+      (An XIP <span class="ref">fetch_stall</span> freezes the same four registers but must
+      <em>not</em> trigger this rewind, see the note above.)
     </p>
     <div class="timing-wrap">
       <table class="timing">
@@ -401,14 +451,14 @@
             <td><span class="cell-tag tag-ok">N</span></td>
           </tr>
           <tr>
-            <th>stall</th>
+            <th>stall <span class="hint">= ex_stall here</span></th>
             <td><span class="cell-tag tag-hi">1</span></td>
             <td><span class="cell-tag tag-hi">1</span></td>
             <td><span class="cell-tag tag-hi">1</span></td>
             <td>0</td><td>0</td><td>0</td><td>0</td>
           </tr>
           <tr>
-            <th>stall_d1</th>
+            <th>ex_stall_d1</th>
             <td>0</td>
             <td><span class="cell-tag tag-hold">1</span></td>
             <td><span class="cell-tag tag-hold">1</span></td>

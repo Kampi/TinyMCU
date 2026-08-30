@@ -105,7 +105,7 @@
     <p>
       One request/response record pair (<span class="ref">bus_req_t</span> / <span class="ref">bus_rsp_t</span>),
       one outstanding transaction at a time, no pipelining. Every target either acks the
-      same cycle (peripherals) or one cycle later (ROM/RAM) - there is no other
+      same cycle (peripherals) or one cycle later (ROM/RAM); there is no other
       latency in the system. See <code>memory.html</code> for exact address ranges and
       <code>pipeline.html</code> for how a wait state turns into pipeline bubbles.
     </p>
@@ -118,14 +118,14 @@
     </div>
     <p class="lead">
       One <span class="ref">bus_req_t</span> travels from master to target, one
-      <span class="ref">bus_rsp_t</span> travels back - every device on the bus
+      <span class="ref">bus_rsp_t</span> travels back; every device on the bus
       (<span class="ref">tinymcu_sram</span>, <span class="ref">tinymcu_imem</span>,
       <span class="ref">tinymcu_periph_*</span>) speaks the exact same pair of records.
     </p>
 
     <div class="signal-pair">
       <div>
-        <p class="signal-title">bus_req_t - master &rarr; target</p>
+        <p class="signal-title">bus_req_t: master &rarr; target</p>
         <div class="table-wrap">
           <table class="map">
             <thead><tr><th>Field</th><th>Width</th><th>Meaning</th></tr></thead>
@@ -140,7 +140,7 @@
         </div>
       </div>
       <div>
-        <p class="signal-title">bus_rsp_t - target &rarr; master</p>
+        <p class="signal-title">bus_rsp_t: target &rarr; master</p>
         <div class="table-wrap">
           <table class="map">
             <thead><tr><th>Field</th><th>Width</th><th>Meaning</th></tr></thead>
@@ -161,15 +161,15 @@
       <span class="section-sub">stb / ack</span>
     </div>
     <p class="lead">
-      The master raises <span class="ref">stb</span> and holds it - along with
-      <span class="ref">addr</span>/<span class="ref">we</span>/<span class="ref">ben</span> -
+      The master raises <span class="ref">stb</span> and holds it, along with
+      <span class="ref">addr</span>/<span class="ref">we</span>/<span class="ref">ben</span>,
       until it sees <span class="ref">ack</span>. Whether that happens the same cycle or one
       cycle later depends entirely on which target answered.
     </p>
 
     <div class="scenario-head">
       <span class="scenario-title">GPIO / Timer / UART</span>
-      <span class="scenario-cost">combinational ack - zero wait states</span>
+      <span class="scenario-cost">combinational ack: zero wait states</span>
     </div>
     <div class="timing-wrap">
       <table class="timing">
@@ -183,14 +183,14 @@
     </div>
     <p class="lead">
       <span class="ref">*_rsp_o.ack &lt;= *_req_i.stb;</span> as a plain concurrent
-      assignment in all three peripherals - no clocked process at all. The CPU's
+      assignment in all three peripherals, with no clocked process at all. The CPU's
       <span class="ref">stall</span> (<code>cpu_req.stb and not cpu_rsp.ack</code>) never
       even sees a gap, so a peripheral access costs nothing beyond the instruction's own EX cycle.
     </p>
 
     <div class="scenario-head">
       <span class="scenario-title">ROM / RAM</span>
-      <span class="scenario-cost">registered ack - one wait state, then two pipeline bubbles</span>
+      <span class="scenario-cost">registered ack: one wait state, then two pipeline bubbles</span>
     </div>
     <div class="timing-wrap">
       <table class="timing">
@@ -207,9 +207,9 @@
       Same registered-ack pattern in <span class="ref">tinymcu_sram.vhd</span> and
       <span class="ref">tinymcu_imem.vhd</span>'s data port: <span class="ref">rsp_o.ack &lt;= req_i.stb;</span>
       but inside a clocked process. One stall cycle waiting for <span class="ref">ack</span>,
-      then <span class="ref">resume_flush</span> takes over - the exact same
+      then <span class="ref">resume_flush</span> takes over: the exact same
       redirect-style two-bubble recovery a MUL/DIV stall uses (see pipeline.html's
-      "Timing - stall then recover").
+      "Timing: stall then recover").
     </p>
   </section>
 
@@ -228,12 +228,12 @@
         <div class="node master">
           <span class="n-name">Fetch port</span>
           <span class="n-sub">pc_reg &rarr; tinymcu_imem.fetch_addr_i</span>
-          <span class="n-desc">Not on this bus at all - no stb/ack, always-on synchronous read, one cycle of latency. See pipeline.html's IF stage.</span>
+          <span class="n-desc">Not on this bus at all: no stb/ack, always-on synchronous read, one cycle of latency. See pipeline.html's IF stage.</span>
         </div>
         <div class="node master">
           <span class="n-name">Data bus (cpu_req / cpu_rsp)</span>
           <span class="n-sub">LOAD / STORE only</span>
-          <span class="n-desc">CSR access is a separate direct connection to tinymcu_cpu_csrfile - it never touches this bus or stb/stall.</span>
+          <span class="n-desc">CSR access is a separate direct connection to tinymcu_cpu_csrfile; it never touches this bus or stb/stall.</span>
         </div>
       </div>
 
@@ -252,15 +252,15 @@
       <div class="topo-row">
         <div class="node leaf">
           <span class="n-name">tinymcu_imem</span>
-          <span class="n-sub">0x00 - registered</span>
+          <span class="n-sub">0x00: registered</span>
         </div>
         <div class="node leaf">
           <span class="n-name">tinymcu_sram</span>
-          <span class="n-sub">0x02 - registered</span>
+          <span class="n-sub">0x02: registered</span>
         </div>
         <div class="node decoder">
           <span class="n-name">tinymcu_periph</span>
-          <span class="n-sub">0x04 - addr[31:8]</span>
+          <span class="n-sub">0x04: addr[31:8]</span>
         </div>
       </div>
 
@@ -292,7 +292,7 @@
           Both decode levels drive <span class="ref">err &lt;= '1'</span> when nothing
           matched, but <span class="ref">tinymcu_cpu.vhd</span> never reads
           <span class="ref">cpu_rsp.err</span> anywhere. An unmapped access just silently
-          reads back <span class="ref">0</span> with an immediate ack - no trap, no stall.
+          reads back <span class="ref">0</span> with an immediate ack; no trap, no stall.
         </p>
       </div>
       <div class="note">
@@ -300,7 +300,7 @@
         <p>
           <span class="ref">tinymcu_sram.vhd</span> is four 8-bit lanes, each with its own
           <span class="ref">en_i</span> driven straight from <span class="ref">ben</span>.
-          A byte/half-word load only strobes the lane(s) it actually needs - the
+          A byte/half-word load only strobes the lane(s) it actually needs; the
           disabled lanes hold stale data, which is fine since nothing reads them that cycle.
         </p>
       </div>
@@ -319,7 +319,7 @@
           <span class="ref">instr_ex</span>'s opcode. Once <span class="ref">ack</span> lands,
           the following bubble cycle (see <span class="ref">resume_flush</span>) turns
           <span class="ref">instr_ex</span> into a NOP, which drops <span class="ref">stb</span>
-          on its own - no explicit one-shot logic needed.
+          on its own, with no explicit one-shot logic needed.
         </p>
       </div>
     </div>

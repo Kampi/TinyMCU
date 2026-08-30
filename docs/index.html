@@ -69,14 +69,52 @@
     <h1>Documentation</h1>
     <p>
       Reference documents for TinyMCU's RTL, generated from the source and kept in sync
-      by hand. Each one is a standalone page &mdash; open any of them directly, or start here.
+      by hand.
     </p>
   </header>
 
   <section>
     <div class="section-head">
+      <h2>Generics</h2>
+      <span class="section-sub">entity tinymcu_cpu</span>
+    </div>
+    <div class="table-wrap">
+      <table class="map">
+        <thead><tr><th>Generic</th><th>Default</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="reg">IMEM_ADDR_WIDTH</td><td class="reg">13</td>
+            <td class="desc">Boot ROM address width in bits; the ROM holds 2<sup>IMEM_ADDR_WIDTH</sup> words.</td>
+          </tr>
+          <tr>
+            <td class="reg">RAM_ADDR_WIDTH</td><td class="reg">14</td>
+            <td class="desc">Kernel/TPA RAM address width in bits; the RAM holds 2<sup>RAM_ADDR_WIDTH</sup> words.</td>
+          </tr>
+          <tr>
+            <td class="reg">RAMDISK_ENABLE</td><td class="reg">false</td>
+            <td class="desc">Enables the RAM disk (<code>sw/cpm-neo/</code> only). When false, the RAM disk's SRAM array is left out of the design entirely, its address window reads 0 and acks the same cycle like any other unmapped region, and <code>tinymcu_imem.vhd</code>'s fetch arbiter never routes fetches there either.</td>
+          </tr>
+          <tr>
+            <td class="reg">RAMDISK_ADDR_WIDTH</td><td class="reg">15</td>
+            <td class="desc">RAM disk address width in bits. Only meaningful when RAMDISK_ENABLE is true.</td>
+          </tr>
+          <tr>
+            <td class="reg">XIP_ENABLE</td><td class="reg">false</td>
+            <td class="desc">Enables the XIP SPI flash controller (<code>tinymcu_imem_xip.vhd</code>). When false, it's left out of the design entirely, its register window reads 0 and acks the same cycle like any other unmapped region, and the fetch arbiter never routes fetches to it either. When true, software can configure and enable it to fetch code from an external SPI flash.</td>
+          </tr>
+          <tr>
+            <td class="reg">TRACE_ENABLE</td><td class="reg">false</td>
+            <td class="desc">Simulation only: prints <code>PC=0x... INSTR=0x... &lt;mnemonic&gt;</code> every cycle an instruction is in EX. Default off so testbenches that don't want the noise are unaffected.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
       <h2>Contents</h2>
-      <span class="section-sub">5 documents</span>
+      <span class="section-sub">6 documents</span>
     </div>
 
     <div class="doc-list">
@@ -123,6 +161,15 @@
           <span class="doc-desc">Register map, CONFIG framing decode, the Tx/Rx state machines, and the level-tied RX_READY interrupt.</span>
         </span>
         <span class="doc-file">uart.html</span>
+      </a>
+
+      <a class="doc-card" href="xip.html">
+        <span class="doc-num">06</span>
+        <span class="doc-body">
+          <span class="doc-title">XIP</span>
+          <span class="doc-desc">The fetch and write engines, register map, the software driver's API, and how an XIP fetch stalls the pipeline.</span>
+        </span>
+        <span class="doc-file">xip.html</span>
       </a>
     </div>
   </section>
