@@ -129,7 +129,7 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
     signal current_rx_state : UART_Rx_State_t := Rx_Idle;
 
     -- Decodes CONFIG bits 1:0 into the number of data bits per frame.
-    --   databits - CONFIG(1 downto 0), the "Transmission length" field.
+    --   databits: CONFIG(1 downto 0), the "Transmission length" field.
     -- Returns: 8, 7 or 9. "11" is unused and also returns 8.
     function databits_reg(databits : std_ulogic_vector(1 downto 0)) return integer is
     begin
@@ -142,7 +142,7 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
     end function;
 
     -- Decodes CONFIG bits 3:2 into the number of stop bits per frame.
-    --   stopbits - CONFIG(3 downto 2), the "Stop bits" field.
+    --   stopbits: CONFIG(3 downto 2), the "Stop bits" field.
     -- Returns: 2 for "01", 1 otherwise ("00", "10" and the unused "11").
     function stopbits_reg(stopbits : std_ulogic_vector(1 downto 0)) return integer is
     begin
@@ -153,7 +153,7 @@ architecture tinymcu_periph_uart_rtl of tinymcu_periph_uart is
     end function;
 
     -- Decodes CONFIG bits 5:4 into the parity mode used for the frame.
-    --   parity - CONFIG(5 downto 4), the "Parity bits" field.
+    --   parity: CONFIG(5 downto 4), the "Parity bits" field.
     -- Returns: Parity_Even/Parity_Odd, or Parity_None for "00" and the
     -- unused "11" encoding.
     function parity_reg(parity : std_ulogic_vector(1 downto 0)) return UART_Parity_Mode_t is
@@ -211,7 +211,7 @@ begin
     uart_rsp_o.err  <= '0';
 
     ----------------------------------------------------------------------
-    -- Tx process
+    -- Tx engine
     ----------------------------------------------------------------------
     process (clk_i)
         variable num_databits   : integer := 0;
@@ -353,7 +353,7 @@ begin
     end process;
 
     ----------------------------------------------------------------------
-    -- Rx process
+    -- Rx engine
     ----------------------------------------------------------------------
     process (clk_i)
         variable num_databits   : integer := 0;

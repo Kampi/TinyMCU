@@ -44,7 +44,7 @@ architecture tinymcu_cpu_alu_rtl of tinymcu_cpu_alu is
     -- Carry-less (XOR/polynomial, GF(2)) multiplication, full 64-bit product; CLMUL/CLMULH/
     -- CLMULR each take a different 32-bit slice of this same result (see their case branches
     -- below), so it's one shared function instead of the same loop three times over.
-    --   a, b - the two 32-bit operands (op_a/op_b); order matters only in that a's bits select
+    --   a, b: the two 32-bit operands (op_a/op_b); order matters only in that a's bits select
     --          which shifted copies of b get XORed in, not for the result itself (carry-less
     --          multiplication is commutative, same as ordinary multiplication).
     -- Returns: the full 64-bit carry-less product of a and b.
@@ -61,7 +61,7 @@ architecture tinymcu_cpu_alu_rtl of tinymcu_cpu_alu is
 
     -- CLZ/CTZ/CPOP (see ALU_CLZ/ALU_CTZ/ALU_CPOP): none of these have a ready-made numeric_std
     -- function, so a small loop each. All three take the same single parameter:
-    --   v - the value to count/scan (always op_a_i for these, since CLZ/CTZ/CPOP are unary, op_b_i
+    --   v: the value to count/scan (always op_a_i for these, since CLZ/CTZ/CPOP are unary, op_b_i
     --       is unused).
     -- Counts leading zero bits, scanning from v's highest-indexed bit down towards v's
     -- lowest-indexed bit.

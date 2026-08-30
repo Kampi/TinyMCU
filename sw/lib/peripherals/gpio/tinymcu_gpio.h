@@ -52,7 +52,7 @@ typedef struct {
 /**
  * @brief CONFIG bits 15:1: debounce threshold field, in clock cycles (0
  * = disabled). Position/width match tinymcu_periph_gpio.vhd's
- * DEBOUNCE_WIDTH generic default (15) -- if that generic is ever
+ * DEBOUNCE_WIDTH generic default (15); if that generic is ever
  * overridden at synthesis time, these three must be updated to match.
  */
 #define TINYMCU_GPIO_CONFIG_DEBOUNCE_LSB   1u
@@ -193,7 +193,7 @@ void tinymcu_gpio_irq_clear_all(void);
  * the interrupt logic once the raw pad has held the new level for this
  * many consecutive clock cycles. Read-modify-write, leaves CONFIG's
  * other bits (in particular #TINYMCU_GPIO_CONFIG_GLOBAL_INT_EN)
- * untouched. Applies to every pin at once -- there's no per-pin setting.
+ * untouched. Applies to every pin at once; there's no per-pin setting.
  * @param cycles Debounce threshold in clock cycles, 0 disables filtering
  *               (values above what
  *               #TINYMCU_GPIO_CONFIG_DEBOUNCE_WIDTH bits can hold are

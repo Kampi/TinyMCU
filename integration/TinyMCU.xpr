@@ -108,6 +108,13 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
+      <File Path="$PPRDIR/../rtl/core/tinymcu_imem_xip.vhd">
+        <FileInfo>
+          <Attr Name="Library" Val="tinymcu"/>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
       <File Path="$PPRDIR/../rtl/core/tinymcu_addr_decoder.vhd">
         <FileInfo SFType="VHDL2008">
           <Attr Name="Library" Val="tinymcu"/>

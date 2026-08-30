@@ -133,7 +133,7 @@ begin
 
         check("tx_o idles high before any transmission", tx = '1', errors);
 
-        -- CONFIG = 0 (8 data bits, 1 stop bit, no parity -- also the
+        -- CONFIG = 0 (8 data bits, 1 stop bit, no parity, also the
         -- reset default, written explicitly here for clarity)
         bus_write(x"00000000", x"00000000");
         -- BAUDRATE = 1667 (word offset 1 -> byte 0x04)
@@ -204,7 +204,7 @@ begin
         check("INT_STATUS resets to 0", to_integer(unsigned(rd)) = 0, errors);
         check("irq_o low with nothing enabled", irq = '0', errors);
 
-        -- A byte arrives with the RX interrupt still disabled -- must not
+        -- A byte arrives with the RX interrupt still disabled; must not
         -- set the flag or raise irq_o.
         send_byte(x"11", false);
         wait for CLK_PERIOD * 2;
@@ -233,7 +233,7 @@ begin
         check("irq_o stays high", irq = '1', errors);
 
         -- Read RX_DATA first (clears STATUS.RX_READY), then clear
-        -- INT_STATUS -- this time it sticks.
+        -- INT_STATUS; this time it sticks.
         bus_read(x"00000010", rd);
         check("RX_DATA = 0x22", to_integer(unsigned(rd)) = 16#22#, errors);
 

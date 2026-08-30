@@ -9,19 +9,11 @@
 -- Module Name: tinymcu_imem - tinymcu_imem_rtl
 -- Project Name: TinyMCU
 -- Description:
---   Instruction-fetch arbiter: presents Boot ROM, Flash, (eventually)
---   XIP, and -- only when RAMDISK_ENABLE -- kernel/TPA RAM and the RAM
---   disk (sw/cpm-neo/ only) behind one fetch-side and one data-side
---   port, instead of exposing each of them separately to
---   tinymcu_cpu.vhd. Real RISC-V cores execute out of RAM as a matter
---   of course (an OS kernel loaded into RAM by its own bootloader and
---   run directly from there is the normal case, not a special one);
---   TinyMCU never had this until RAMDISK_ENABLE existed to mark exactly
---   the class of build (sw/cpm-neo/) that actually needs it -- classic
---   sw/*-style fixed ROM programs never do, and get no new logic or
---   timing path when it's false. The data bus side only ever covers the
---   Boot ROM/Flash/XIP window regardless -- RAM/RAM disk have their own
---   data-bus path through tinymcu_addr_decoder.vhd already.
+--   Instruction-fetch arbiter: presents Boot ROM, and, only when the
+--   matching generic is set, kernel/TPA RAM + the RAM disk
+--   (RAMDISK_ENABLE, sw/cpm-neo/ only) and XIP flash (XIP_ENABLE)
+--   behind one fetch-side and one data-side port, instead of exposing
+--   each of them separately to tinymcu_cpu.vhd.
 --
 -- Dependencies:
 --   tinymcu_pkg, tinymcu_imem_bootrom
@@ -37,58 +29,53 @@ use tinymcu.tinymcu_pkg.all;
 entity tinymcu_imem is
     generic (
         IMEM_ADDR_WIDTH : integer := 13;
-
-        -- See tinymcu_cpu.vhd's own generic of the same name.
-        RAMDISK_ENABLE : boolean := false
+        RAMDISK_ENABLE  : boolean := false;
+        XIP_ENABLE      : boolean := false
     );
     port (
         -- Global control
-        clk_i : in std_logic;
+        clk_i                   : in std_logic;
 
         -- PC-facing side
-        fetch_addr_i : in  word_t;
-        fetch_dout_o : out word_t;
+        fetch_addr_i            : in  word_t;
+        fetch_dout_o            : out word_t;
+
+        -- '1' while an in-flight fetch targets the XIP flash window and isn't ready yet (XIP_ENABLE only).
+        fetch_stall_o           : out std_ulogic;
 
         -- Data bus
-        data_req_i  : in  bus_req_t;
-        data_rsp_o  : out bus_rsp_t;
+        data_req_i              : in  bus_req_t;
+        data_rsp_o              : out bus_rsp_t;
 
-        -- Fetch-side arbitration with RAM/RAM disk (RAMDISK_ENABLE
-        -- only). fetch_pc_if_i selects, not fetch_addr_i: the Boot ROM's
-        -- own fetch read below is synchronous/registered, same as
-        -- u_sram's/u_ramdisk's, so ram_fetch_dout_i/ramdisk_fetch_dout_i
-        -- reflect fetch_addr_i from ONE CYCLE AGO, not this cycle's
-        -- value -- fetch_pc_if_i is tinymcu_cpu.vhd's own pc_if, already
-        -- a one-cycle-delayed echo of that older value, so it is what's
-        -- actually time-aligned with them right now.
-        fetch_pc_if_i        : in  word_t;
-        ram_fetch_dout_i      : in  word_t;
-        ramdisk_fetch_dout_i  : in  word_t
+        -- Fetch-side arbitration with RAM/RAM disk (RAMDISK_ENABLE only).
+        fetch_pc_if_i           : in  word_t;
+        ram_fetch_dout_i        : in  word_t;
+        ramdisk_fetch_dout_i    : in  word_t;
+
+        -- Fetch-side arbitration with XIP (XIP_ENABLE only). 
+        xip_fetch_dout_i        : in word_t;
+        xip_fetch_ready_i       : in std_ulogic
     );
 end entity tinymcu_imem;
 
 architecture tinymcu_imem_rtl of tinymcu_imem is
     -- 0 = Boot ROM
-    -- 1 = Flash (Not implemented yet)
-    -- 2 = XIP (Not implemented yet)
     constant BUS_MEMBERS : integer := 1;
-
-    -- Mirrors tinymcu_addr_decoder.vhd's own local RAMDISK_TOP_BYTE
-    -- constant (deliberately not shared via tinymcu_pkg.vhd -- RAM disk
-    -- addressing is a sw/cpm-neo/-specific concern, see that file's own
-    -- comment). Used only by fetch_mux_gen below.
-    constant RAMDISK_TOP_BYTE : std_ulogic_vector(7 downto 0) := x"03";
 
     type dout_t is array (BUS_MEMBERS - 1 downto 0) of word_t;
 
-    signal fetch_sel    : std_ulogic_vector(BUS_MEMBERS - 1 downto 0);
-    signal data_sel     : std_ulogic_vector(BUS_MEMBERS - 1 downto 0);
+    signal fetch_sel            : std_ulogic_vector(BUS_MEMBERS - 1 downto 0);
+    signal data_sel             : std_ulogic_vector(BUS_MEMBERS - 1 downto 0);
 
-    signal fetch_dout   : dout_t;
-    signal data_dout    : dout_t;
+    signal fetch_dout           : dout_t;
+    signal data_dout            : dout_t;
 
-    signal int_fetch    : word_t;
-    signal int_data     : word_t;
+    signal int_fetch            : word_t;
+    signal int_data             : word_t;
+
+    signal in_ram_window        : std_ulogic;
+    signal in_ramdisk_window    : std_ulogic;
+    signal in_xip_window        : std_ulogic;
 
 begin
 
@@ -103,9 +90,8 @@ begin
         );
 
     ----------------------------------------------------------------------
-    -- Select the instruction fetch target within THIS entity's own
-    -- members (Boot ROM/Flash/XIP) -- unrelated to fetch_mux_gen below,
-    -- which arbitrates between this result and RAM/RAM disk.
+    -- Select the instruction fetch target within this entity's own
+    -- members (Boot ROM).
     ----------------------------------------------------------------------
     fetch_sel(0) <= '1' when unsigned(fetch_addr_i(31 downto IMEM_ADDR_WIDTH + 2)) = 0 else '0';
     fetch : process (fetch_dout, fetch_sel)
@@ -123,31 +109,42 @@ begin
     end process;
 
     ----------------------------------------------------------------------
-    -- Fetch-side arbitration with RAM/RAM disk (RAMDISK_ENABLE only)
-    --
-    -- When false, fetch_dout_o is wired straight from int_fetch, byte-
-    -- identical to this entity's behavior before RAMDISK_ENABLE existed
-    -- -- classic builds get no new logic, no new timing path, and no
-    -- ability to run code out of RAM at all, on purpose (see
-    -- tinymcu_cpu.vhd's own RAMDISK_ENABLE comment). When true, PC
-    -- addresses outside this entity's own window (int_fetch would
-    -- already read 0 for those -- see fetch_sel above) fall through to
-    -- whichever of RAM/RAM disk fetch_pc_if_i's top byte actually
-    -- matches.
+    -- Fetch-side arbitration with RAM/RAM disk/XIP
     ----------------------------------------------------------------------
-    fetch_mux_gen : if RAMDISK_ENABLE generate
-        process (fetch_pc_if_i, int_fetch, ram_fetch_dout_i, ramdisk_fetch_dout_i)
+    in_ram_window     <= '1' when (unsigned(fetch_pc_if_i) >= unsigned(RAM_BASE) and
+                                   unsigned(fetch_pc_if_i) < unsigned(RAM_END))
+                          else '0';
+
+    in_ramdisk_window <= '1' when (unsigned(fetch_pc_if_i) >= unsigned(RAMDISK_BASE) and
+                                   unsigned(fetch_pc_if_i) < unsigned(RAMDISK_END))
+                          else '0';
+
+    in_xip_window     <= '1' when (unsigned(fetch_pc_if_i) >= unsigned(XIP_FLASH_BASE) and
+                                   unsigned(fetch_pc_if_i) < unsigned(XIP_FLASH_END))
+                          else '0';
+
+    fetch_mux_gen : if (RAMDISK_ENABLE or XIP_ENABLE) generate
+        process (fetch_pc_if_i, int_fetch, ram_fetch_dout_i, ramdisk_fetch_dout_i,
+                  in_ram_window, in_ramdisk_window, in_xip_window, xip_fetch_dout_i)
         begin
-            if fetch_pc_if_i(31 downto 24) = RAM_BASE(31 downto 24) then
+            if RAMDISK_ENABLE and in_ram_window = '1' then
                 fetch_dout_o <= ram_fetch_dout_i;
-            elsif fetch_pc_if_i(31 downto 24) = RAMDISK_TOP_BYTE then
+            elsif RAMDISK_ENABLE and in_ramdisk_window = '1' then
                 fetch_dout_o <= ramdisk_fetch_dout_i;
+            elsif XIP_ENABLE and in_xip_window = '1' then
+                fetch_dout_o <= xip_fetch_dout_i;
             else
                 fetch_dout_o <= int_fetch;
             end if;
         end process;
     else generate
         fetch_dout_o <= int_fetch;
+    end generate;
+
+    fetch_stall_gen : if XIP_ENABLE generate
+        fetch_stall_o <= '1' when (in_xip_window = '1' and xip_fetch_ready_i = '0') else '0';
+    else generate
+        fetch_stall_o <= '0';
     end generate;
 
     ----------------------------------------------------------------------
@@ -170,7 +167,6 @@ begin
 
     data_rsp_o.data <= int_data;
     data_rsp_o.err  <= '0' when ((unsigned(fetch_sel) /= 0) or (unsigned(data_sel) /= 0)) else '1';
-
 
     ----------------------------------------------------------------------
     -- Bus ackknowledge

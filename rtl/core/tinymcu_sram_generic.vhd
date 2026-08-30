@@ -45,14 +45,14 @@ entity tinymcu_sram_generic is
     );
     port (
         -- Global control
-        clk_i   : in  std_ulogic;
-        en_i    : in  std_ulogic;
+        clk_i       : in  std_ulogic;
+        en_i        : in  std_ulogic;
 
         -- Word-addressed read/write port
-        addr_i  : in  std_ulogic_vector((ADDR_WIDTH - 1) downto 0);
-        din_i   : in  std_ulogic_vector((DATA_WIDTH - 1) downto 0);
-        we_i    : in  std_ulogic;
-        dout_o  : out std_ulogic_vector((DATA_WIDTH - 1) downto 0);
+        addr_i      : in  std_ulogic_vector((ADDR_WIDTH - 1) downto 0);
+        din_i       : in  std_ulogic_vector((DATA_WIDTH - 1) downto 0);
+        we_i        : in  std_ulogic;
+        dout_o      : out std_ulogic_vector((DATA_WIDTH - 1) downto 0);
 
         -- Second, independent read-only port for instruction fetch
         fetch_addr_i : in  std_ulogic_vector((ADDR_WIDTH - 1) downto 0);

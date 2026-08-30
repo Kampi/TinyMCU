@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     value = pack_mimpid(major, minor, patch)
     line = (
-        f'    constant MIMPID : std_ulogic_vector(31 downto 0) := x"{value:08X}";'
+        f'    constant MIMPID : word_t := x"{value:08X}";'
     )
 
     try:

@@ -11,7 +11,7 @@
 -- Description:
 --   Runs the divider through the full CPU pipeline (tinymcu_cpu), not
 --   just the standalone unit (see tinymcu_tb_div.vhd for that).
---   Register checks are hardwired to scripts/asm_div.py's program --
+--   Register checks are hardwired to scripts/asm_div.py's program;
 --   see that script's header for the exact layout.
 --
 -- Dependencies:

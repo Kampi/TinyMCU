@@ -29,13 +29,14 @@
 --                              pipeline stage there).
 --
 --   A taken branch/jump/trap squashes two in-flight fetches (not one),
---   and every stall (bus wait, mult/div busy) needs a two-cycle
---   redirect-style recovery back to pc_if once it clears.
+--   and every stall (bus wait, mult/div busy, in-flight XIP fetch) needs
+--   a two-cycle redirect-style recovery back to pc_if once it clears.
 --
 -- Dependencies:
---   tinymcu_pkg, tinymcu_imem, tinymcu_cpu_control, tinymcu_cpu_regfile,
---   tinymcu_cpu_csrfile, tinymcu_cpu_alu, tinymcu_addr_decoder,
---   tinymcu_ram_subsystem, tinymcu_periph, tinymcu_periph_gpio
+--   tinymcu_pkg, tinymcu_imem, tinymcu_imem_xip, tinymcu_cpu_control,
+--   tinymcu_cpu_regfile, tinymcu_cpu_csrfile, tinymcu_cpu_alu,
+--   tinymcu_addr_decoder, tinymcu_ram_subsystem, tinymcu_periph,
+--   tinymcu_periph_gpio
 --
 --------------------------------------------------------------------------------
 
@@ -64,6 +65,17 @@ entity tinymcu_cpu is
         RAMDISK_ENABLE     : boolean := false;
         RAMDISK_ADDR_WIDTH : integer := 15;
 
+        -- When false, tinymcu_imem_xip (u_xip below) is left out of the
+        -- design entirely, its data-bus window (XIP_BASE,
+        -- tinymcu_periph.vhd) reads 0 and acks the same cycle same as
+        -- any other unmapped region, and tinymcu_imem.vhd's fetch
+        -- arbiter never routes fetches to it either.
+        -- When true, software can configure
+        -- and enable the XIP controller (tinymcu_imem_xip.vhd's
+        -- CONFIG/STATUS registers) to fetch code from an external SPI
+        -- flash mapped at XIP_FLASH_BASE..XIP_FLASH_END.
+        XIP_ENABLE : boolean := false;
+
         -- Simulation only: prints "PC=0x... INSTR=0x... <mnemonic>" every
         -- cycle an instruction is in EX, using tinymcu_pkg.vhd's
         -- disassemble(). Default off so testbenches that don't want the
@@ -79,13 +91,21 @@ entity tinymcu_cpu is
         ext_irq_i       : in std_logic;
 
         -- GPIO ports
-        gpio_port     : inout std_logic_vector(31 downto 0);
+        gpio_port       : inout std_logic_vector(31 downto 0);
 
         -- UART
         uart_tx_o       : out std_logic;
-        uart_rx_i       : in std_logic := '1';
+        uart_rx_i       : in std_logic      := '1';
         uart_rts_o      : out std_logic;
-        uart_cts_i      : in std_logic := '1';
+        uart_cts_i      : in std_logic      := '1';
+
+        -- XIP SPI pins (XIP_ENABLE only; harmless to leave unconnected
+        -- otherwise, since xip_sclk_o/xip_ss_n_o/xip_mosi_o just sit at
+        -- their idle values, and no top level needs to route them).
+        xip_miso_i      : in  std_logic     := '1';
+        xip_sclk_o      : out std_logic;
+        xip_ss_n_o      : out std_logic;
+        xip_mosi_o      : out std_logic;
 
         -- Simulation/debug only; leave unconnected in the FPGA top level.
         debug_regs_o    : out reg_array_t
@@ -101,7 +121,7 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
 
     -- u_ram_subsystem's own independent fetch-port results (kernel/TPA
     -- RAM and RAM disk respectively), registered (BRAM-style, one cycle
-    -- of latency) same as the Boot ROM's own -- tinymcu_imem.vhd's
+    -- of latency) same as the Boot ROM's own. Tinymcu_imem.vhd's
     -- fetch_mux_gen arbitrates between them and its own Boot ROM result,
     -- gated by RAMDISK_ENABLE. ramdisk_fetch_dout is tied to 0 when
     -- RAMDISK_ENABLE is false (the RAM disk's SRAM array doesn't exist
@@ -109,6 +129,17 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     -- even though unused in that case.
     signal ram_fetch_dout     : word_t;
     signal ramdisk_fetch_dout : word_t;
+
+    -- tinymcu_imem_xip's own fetch-side result (XIP_ENABLE only; tied to
+    -- 0/'0' when disabled, see u_xip's generate below). Unlike
+    -- ram_fetch_dout/ramdisk_fetch_dout, xip_fetch_ready isn't a fixed
+    -- 1-cycle-delayed signal.
+    signal xip_fetch_dout  : word_t;
+    signal xip_fetch_ready : std_ulogic;
+
+    -- '1' while tinymcu_imem.vhd is waiting on an in-flight XIP fetch
+    -- (XIP_ENABLE only).
+    signal fetch_stall : std_ulogic;
 
     -- IF/ID buffer: tinymcu_imem's boot-ROM read is registered (BRAM-style, one cycle of latency, so
     -- instr_if lags the pc_reg value that produced it by one cycle
@@ -127,8 +158,22 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     -- '1' while a multi cycle instruction is active to hold the pipeline
     signal stall        : std_ulogic;
 
-    -- '1' for exactly the cycle a stall (bus wait, mult/div busy)
-    signal stall_d1     : std_ulogic;
+    -- '1' while the EX-stage portion of "stall" (bus wait, mult/div
+    -- busy) is active, excluding fetch_stall; see ex_stall_d1's
+    -- comment for why the split matters.
+    signal ex_stall      : std_ulogic;
+
+    -- '1' for exactly the cycle an EX-stage stall (bus wait, mult/div
+    -- busy) clears. Deliberately NOT keyed on the full "stall" (which
+    -- also includes fetch_stall, XIP_ENABLE only): resume_flush below
+    -- rewinds pc_reg back to pc_if on the cycle this fires, which is
+    -- correct once an EX-stage bus wait clears (the fetch pipeline was
+    -- coasting on the same linear path the whole time) but wrong once a
+    -- fetch_stall clears, since pc_reg can hold a fresh redirect target
+    -- (e.g. a JAL/JALR/branch into the XIP flash window) that hasn't
+    -- reached pc_if yet, and rewinding would silently discard that jump
+    -- and resume the stale, already-squashed fall-through path instead.
+    signal ex_stall_d1  : std_ulogic;
 
     -- Flush the pipeline
     signal resume_flush : std_ulogic;
@@ -211,6 +256,8 @@ architecture tinymcu_cpu_rtl of tinymcu_cpu is
     signal timer_rsp    : bus_rsp_t;
     signal uart_req     : bus_req_t;
     signal uart_rsp     : bus_rsp_t;
+    signal xip_req      : bus_req_t;
+    signal xip_rsp      : bus_rsp_t;
 
     -- IRQ signals
     signal timer_irq    : std_ulogic;
@@ -242,21 +289,25 @@ begin
     u_imem : entity tinymcu.tinymcu_imem
         generic map (
             IMEM_ADDR_WIDTH => IMEM_ADDR_WIDTH,
-            RAMDISK_ENABLE  => RAMDISK_ENABLE
+            RAMDISK_ENABLE  => RAMDISK_ENABLE,
+            XIP_ENABLE      => XIP_ENABLE
         )
         port map (
             clk_i                => clk_i,
             fetch_addr_i         => pc_reg,
             fetch_dout_o         => instr_if,
+            fetch_stall_o        => fetch_stall,
             data_req_i           => imem_req,
             data_rsp_o           => imem_rsp,
             fetch_pc_if_i        => pc_if,
             ram_fetch_dout_i     => ram_fetch_dout,
-            ramdisk_fetch_dout_i => ramdisk_fetch_dout
+            ramdisk_fetch_dout_i => ramdisk_fetch_dout,
+            xip_fetch_dout_i     => xip_fetch_dout,
+            xip_fetch_ready_i    => xip_fetch_ready
         );
 
-    -- Continue with the pipeline flush on a rising edge of "stall_dl"
-    resume_flush <= '1' when (stall_d1 = '1' and stall = '0') else '0';
+    -- Continue with the pipeline flush on a rising edge of "ex_stall_d1"
+    resume_flush <= '1' when (ex_stall_d1 = '1' and ex_stall = '0') else '0';
 
     ----------------------------------------------------------------------
     -- Stall logic
@@ -265,9 +316,9 @@ begin
     begin
         if rising_edge(clk_i) then
             if rst_i = '1' then
-                stall_d1 <= '0';
+                ex_stall_d1 <= '0';
             else
-                stall_d1 <= stall;
+                ex_stall_d1 <= ex_stall;
             end if;
         end if;
     end process;
@@ -276,7 +327,11 @@ begin
     --  The bus slave hasn´t acked the message
     --  The multiplier is busy
     --  The division is busy
-    stall <= (cpu_req.stb and not cpu_rsp.ack) or mult_busy or div_busy;
+    ex_stall <= (cpu_req.stb and not cpu_rsp.ack) or mult_busy or div_busy;
+
+    -- Also hold when an in-flight XIP fetch isn't ready yet (fetch_stall,
+    -- XIP_ENABLE only)
+    stall <= ex_stall or fetch_stall;
 
     ----------------------------------------------------------------------
     -- PC and pipeline register
@@ -678,14 +733,17 @@ begin
 
     cpu_req.addr <= alu_result;
     cpu_req.data <= ram_in;
-    cpu_req.ben  <= ram_ben;
-    cpu_req.we   <= ram_we;
-    cpu_req.stb  <= '1' when (opcode = OPC_LOAD or opcode = OPC_STORE) else '0';
+    cpu_req.ben <= ram_ben;
+    cpu_req.we <= ram_we;
+    cpu_req.stb <= '1' when (opcode = OPC_LOAD or opcode = OPC_STORE) else '0';
 
     ----------------------------------------------------------------------
     -- Peripheral address decoder
     ----------------------------------------------------------------------
     u_periph : entity tinymcu.tinymcu_periph
+        generic map (
+            XIP_ENABLE => XIP_ENABLE
+        )
         port map (
             periph_req_i  => periph_req,
             periph_rsp_o  => periph_rsp,
@@ -694,8 +752,37 @@ begin
             timer_req_o   => timer_req,
             timer_rsp_i   => timer_rsp,
             uart_req_o    => uart_req,
-            uart_rsp_i    => uart_rsp
+            uart_rsp_i    => uart_rsp,
+            xip_req_o     => xip_req,
+            xip_rsp_i     => xip_rsp
         );
+
+    ----------------------------------------------------------------------
+    -- XIP controller (XIP_ENABLE only)
+    ----------------------------------------------------------------------
+    xip_gen : if XIP_ENABLE generate
+        u_xip : entity tinymcu.tinymcu_imem_xip
+            port map (
+                clk_i         => clk_i,
+                rst_i         => rst_i,
+                xip_req_i     => xip_req,
+                xip_rsp_o     => xip_rsp,
+                fetch_addr_i  => pc_if,
+                fetch_dout_o  => xip_fetch_dout,
+                fetch_ready_o => xip_fetch_ready,
+                miso_i        => xip_miso_i,
+                sclk_o        => xip_sclk_o,
+                ss_n_o        => xip_ss_n_o,
+                mosi_o        => xip_mosi_o
+            );
+    else generate
+        xip_rsp         <= BUS_RSP_IDLE;
+        xip_fetch_dout  <= (others => '0');
+        xip_fetch_ready <= '0';
+        xip_sclk_o      <= '0';
+        xip_ss_n_o      <= '1';
+        xip_mosi_o      <= '0';
+    end generate;
 
     ----------------------------------------------------------------------
     -- GPIO Peripheral

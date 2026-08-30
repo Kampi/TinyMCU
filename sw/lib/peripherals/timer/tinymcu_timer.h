@@ -10,7 +10,7 @@
  *
  * The compare interrupt (see tinymcu_timer_irq_enable()) is edge-
  * triggered on COUNTER == COMPARE: it fires once per crossing, not
- * continuously, and does not auto-reset COUNTER on its own -- reset it
+ * continuously, and does not auto-reset COUNTER on its own; reset it
  * yourself (see tinymcu_timer_reset()) in the ISR if you want the match
  * to happen again after another full period, same as when polling
  * COUNTER directly.

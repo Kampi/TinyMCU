@@ -44,7 +44,7 @@ entity tinymcu_sram is
         req_i : in  bus_req_t;
         rsp_o : out bus_rsp_t;
 
-        -- Second, independent read-only port for instruction fetch --
+        -- Second, independent read-only port for instruction fetch,
         -- see tinymcu_sram_generic.vhd's fetch_addr_i/fetch_dout_o.
         -- Full byte address in (word_t), sliced the same way req_i.addr
         -- is below; whether tinymcu_cpu.vhd ever actually wires this to

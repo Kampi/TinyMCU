@@ -115,8 +115,8 @@ begin
         check("pin 2 reads low via weak pull-down", rd(2) = '0', errors);
 
         -- Pin 3: a real external driver (see the concurrent gpio(3) <= '1'
-        -- above) overrides a pull-down configured on the same pin --
-        -- proves the pull is genuinely weak, not a second strong driver.
+        -- above) overrides a pull-down configured on the same pin,
+        -- proving the pull is genuinely weak, not a second strong driver.
         bus_write(x"00000008", x"00000000");  -- PULL_SEL bit3 = 0 (pull-down)
         bus_write(x"0000000C", x"0000000C");  -- PULL_EN  bits 2,3 = 1
         wait for CLK_PERIOD;
@@ -155,7 +155,7 @@ begin
         check("falling edge on an enabled pin sets its status bit", rd(5) = '1', errors);
         check("irq_o goes high", irq = '1', errors);
 
-        -- Pin 6 is not enabled in INT_CONFIG -- its edge must not set a bit.
+        -- Pin 6 is not enabled in INT_CONFIG, so its edge must not set a bit.
         gpio(6) <= '1';
         wait for CLK_PERIOD * 2;
         bus_read(x"0000001C", rd);
@@ -177,7 +177,7 @@ begin
         -- ---- Debounce (CONFIG bits 15:1) ----
 
         -- Pin 7 was never driven before this point, so it floats ('Z' ->
-        -- 'X' through to_x01) -- settle it to a clean, defined '0' while
+        -- 'X' through to_x01). Settle it to a clean, defined '0' while
         -- debounce is still disabled (threshold 0 tracks the raw pad
         -- immediately), *before* raising the threshold below. Otherwise
         -- gpio_debounced(7) would carry that undefined history into the

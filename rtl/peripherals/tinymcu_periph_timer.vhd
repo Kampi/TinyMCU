@@ -94,8 +94,8 @@ architecture tinymcu_periph_timer_rtl of tinymcu_periph_timer is
     -- Maps the clock prescaler to which bit of the prescaler's free-running counter selects the divide
     -- period (tapping bit i and pulsing on its rising edge gives one tick every 2**(i+1)
     -- cycles, see "Clock prescaler" below).
-    --   clksel - reg_config(3 downto 0), the CONFIG register's CLKSEL field (see the header
-    --            table above).
+    --   clksel: reg_config(3 downto 0), the CONFIG register's CLKSEL field (see the header
+    --           table above).
     -- Returns: the free-running counter's bit index to tap; the sentinel -1 for DIV1 (tick
     -- every cycle, no bit to tap); the sentinel -2 for OFF (never tick covers CLKSEL "0000"
     -- and every reserved "1000".."1111" code, all falling into "when others" below since none
@@ -231,9 +231,9 @@ begin
         end if;
     end process;
 
-    timer_rsp_o.data <= rdata;
-    timer_rsp_o.ack  <= timer_req_i.stb;
-    timer_rsp_o.err  <= '0';
+    timer_rsp_o.data    <= rdata;
+    timer_rsp_o.ack     <= timer_req_i.stb;
+    timer_rsp_o.err     <= '0';
 
     irq_o <= reg_int_status(TIMER_BIT_COMP_INT);
 

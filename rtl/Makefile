@@ -23,6 +23,12 @@
 #                       unit, standalone and not through tinymcu_cpu)
 #   make run-div-cpu  - same as run-mult-cpu, but for tb_div_cpu
 #                       (regenerates the ROM from asm_div.py)
+#   make run-xip-cpu  - regenerate the ROM from asm_xip.py (Boot ROM
+#                       program that configures the XIP controller and
+#                       jumps into its flash window), then analyze,
+#                       elaborate and run tb_xip_cpu. See "make sim
+#                       SIM_TB=xip" for the standalone controller test,
+#                       not through tinymcu_cpu.
 #   make wave         - like run-core, but also dump build/tb_core.ghw
 #                       for a waveform viewer (e.g. GTKWave)
 #   make sim SIM_TB=<name> - simulate any testbench by name, no dedicated
@@ -153,6 +159,17 @@ DIV_CPU_ASM      := $(SIM_SCRIPTS_DIR)/asm_div.py
 DIV_CPU_SIM_SRCS := $(SIM_CORE_DIR)/tinymcu_tb_div_cpu.vhd
 DIV_CPU_TB       := tb_div_cpu
 
+# "make run-xip-cpu": runs the XIP controller through the full CPU
+# pipeline (sim/core/tinymcu_tb_xip_cpu.vhd), unlike the standalone
+# tb_xip (sim SIM_TB=xip) which drives tinymcu_imem_xip directly. Same
+# idea as MULT_CPU_ASM/DIV_CPU_ASM: asm_xip.py has no checks-file
+# counterpart to regenerate, the testbench's asserts (and its own
+# simulated flash content) are hardwired to this exact Boot ROM program
+# (see both files' header comments).
+XIP_CPU_ASM      := $(SIM_SCRIPTS_DIR)/asm_xip.py
+XIP_CPU_SIM_SRCS := $(SIM_CORE_DIR)/tinymcu_tb_xip_cpu.vhd
+XIP_CPU_TB       := tb_xip_cpu
+
 # "make sim SIM_TB=<name>" argument, e.g. SIM_TB=cpm_neo -> finds
 # sim/cpm-neo/tinymcu_tb_cpm_neo.vhd by TinyMCU's tinymcu_tb_<name>.vhd
 # naming convention (every existing testbench already follows it,
@@ -176,9 +193,9 @@ GHDLFLAGS := $(STD) --workdir=$(BUILD) -P$(BUILD)
 GHDLRUNFLAGS := --max-stack-alloc=1024
 
 .PHONY: all run run-core run-irq run-gpio run-timer run-uart run-mult run-mult-cpu \
-        run-div run-div-cpu wave analyze analyze-irq analyze-gpio analyze-timer \
-        analyze-uart analyze-mult analyze-mult-cpu analyze-div analyze-div-cpu \
-        asm asm-irq asm-mult-cpu asm-div-cpu clean help sim \
+        run-div run-div-cpu run-xip-cpu wave analyze analyze-irq analyze-gpio analyze-timer \
+        analyze-uart analyze-mult analyze-mult-cpu analyze-div analyze-div-cpu analyze-xip-cpu \
+        asm asm-irq asm-mult-cpu asm-div-cpu asm-xip-cpu clean help sim \
         set-generics disable-ramdisk cpm-neo cpm-neo-disk cpm-neo-rom cpm-neo-ramdisk
 
 all: run
@@ -200,6 +217,7 @@ run: clean
 	$(MAKE) run-mult-cpu
 	$(MAKE) run-div
 	$(MAKE) run-div-cpu
+	$(MAKE) run-xip-cpu
 
 # Patches RAM_ADDR_WIDTH's, RAMDISK_ADDR_WIDTH's and RAMDISK_ENABLE's
 # generic defaults in both VHDL files that declare them (RAMDISK_ENABLE
@@ -381,6 +399,22 @@ elab-div-cpu: analyze-div-cpu
 run-div-cpu: elab-div-cpu
 	$(GHDL) -r $(GHDLFLAGS) --work=work $(DIV_CPU_TB) $(GHDLRUNFLAGS)
 
+# Regenerates $(IMEM_VHD)'s PROGRAM constant from $(XIP_CPU_ASM) (the
+# Boot ROM program that configures tinymcu_imem_xip.vhd and jumps into
+# its flash window, instead of asm.py's demo program).
+asm-xip-cpu: disable-ramdisk
+	$(PYTHON) $(XIP_CPU_ASM) --vhdl-file $(IMEM_VHD)
+
+analyze-xip-cpu: asm-xip-cpu $(BUILD)
+	bash $(GHDL_ANALYZE) $(GHDLFLAGS) --work=$(LIB) -- $(RTL_SRCS)
+	$(GHDL) -a $(GHDLFLAGS) --work=work $(XIP_CPU_SIM_SRCS)
+
+elab-xip-cpu: analyze-xip-cpu
+	$(GHDL) -e $(GHDLFLAGS) --work=work $(XIP_CPU_TB)
+
+run-xip-cpu: elab-xip-cpu
+	$(GHDL) -r $(GHDLFLAGS) --work=work $(XIP_CPU_TB) $(GHDLRUNFLAGS)
+
 # Simulates any testbench by name, without needing a dedicated target
 # per testbench like the ones above. Does NOT regenerate $(IMEM_VHD) or
 # touch RAMDISK_ENABLE -- it simulates whatever ROM/RAM content is
@@ -426,6 +460,10 @@ help:
 	@echo "  run-div-cpu - regenerate the ROM from asm_div.py, then"
 	@echo "               analyze, elaborate and simulate $(DIV_CPU_TB)"
 	@echo "               (divider through the full CPU pipeline)"
+	@echo "  run-xip-cpu - regenerate the ROM from asm_xip.py, then"
+	@echo "               analyze, elaborate and simulate $(XIP_CPU_TB)"
+	@echo "               (XIP controller through the full CPU pipeline;"
+	@echo "               'sim SIM_TB=xip' tests the standalone controller)"
 	@echo "  wave       - like run-core, but also dump $(BUILD)/$(TB).ghw"
 	@echo "  sim SIM_TB=<name> - simulate any testbench by name, e.g."
 	@echo "               SIM_TB=cpm_neo for tb_cpm_neo -- doesn't touch"
@@ -435,6 +473,7 @@ help:
 	@echo "  asm-irq    - just regenerate the ROM from asm_irq.py"
 	@echo "  asm-mult-cpu - just regenerate the ROM from asm_mult.py"
 	@echo "  asm-div-cpu - just regenerate the ROM from asm_div.py"
+	@echo "  asm-xip-cpu - just regenerate the ROM from asm_xip.py"
 	@echo "  cpm-neo    - build sw/cpm-neo/ for the tinymcu platform and bake"
 	@echo "               both its bootloader and disk image into the RTL"
 	@echo "               (see the sw/cpm-neo/ integration comment above)"

@@ -10,7 +10,7 @@
  *
  * There is no hardware baud-rate divider: BAUDRATE holds the number of
  * clk_i cycles per bit directly (clk_i frequency / desired baud rate),
- * computed by the caller -- see tinymcu_uart_init()'s parameter and
+ * computed by the caller, see tinymcu_uart_init()'s parameter and
  * sim/peripherals/tinymcu_tb_uart.vhd's header for how that value is
  * derived.
  */
@@ -160,7 +160,7 @@ unsigned int tinymcu_uart_irq_pending(void);
  *
  * The flag is tied to STATUS.RX_READY in hardware (see
  * tinymcu_periph_uart.vhd's "Interrupt flags generation" process): while
- * the received byte hasn't been read yet, this clear doesn't stick -- the
+ * the received byte hasn't been read yet, this clear doesn't stick; the
  * flag re-fires the very next clock cycle. Call tinymcu_uart_getc() (or
  * read RX_DATA directly) first, then this, to clear it for good.
  */

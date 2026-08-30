@@ -46,29 +46,48 @@ package tinymcu_pkg is
     end record;
 
     -- CSR default values
-    constant MVENDORID : std_ulogic_vector(31 downto 0) := (others => '0');
-    constant MARCHID   : std_ulogic_vector(31 downto 0) := (others => '0');
+    constant MVENDORID          : word_t := (others => '0');
+    constant MARCHID            : word_t := (others => '0');
+
+    -- Machine ISA Register. Read-only, hardwired: CSR_MISA has no entry in
+    -- tinymcu_cpu_csrfile.vhd's write case, so a write to it is silently
+    -- dropped. Zicsr and the partial Zbb subset TinyMCU implements (see
+    -- tinymcu_cpu_alu.vhd) have no MISA bit of their own in the current
+    -- spec, so they aren't reflected below.
+    --   Bits    Meaning
+    --   31:30   MXL (machine XLEN): 01 = RV32
+    --   29:26   Reserved (WPRI): 0
+    --   25:13   Extensions Z down to N: 0, not implemented
+    --   12      Extension M (integer multiply/divide): 1, implemented
+    --   11:9    Extensions L, K, J: 0, not implemented
+    --   8       Extension I (RV32I base): 1, implemented
+    --   7:0     Extensions H down to A: 0, not implemented
+    constant MISA                : word_t := x"40001100";
 
     -- TINYMCU_MIMPID_BEGIN (auto-generated, do not edit by hand)
-    constant MIMPID : std_ulogic_vector(31 downto 0) := x"00000000";
+    constant MIMPID : word_t := x"00000000";
     -- TINYMCU_MIMPID_END
 
     constant ROM_BASE           : word_t := x"00000000";
     constant ROM_END            : word_t := x"00008000";
-    constant FLASH_BASE         : word_t := x"00008000";
-    constant FLASH_END          : word_t := x"01000000";
+    constant XIP_FLASH_BASE     : word_t := x"00008000";
+    constant XIP_FLASH_END      : word_t := x"01000000";
     constant RAM_BASE           : word_t := x"02000000";
     constant RAM_END            : word_t := x"03000000";
+    constant RAMDISK_BASE       : word_t := x"03000000";
+    constant RAMDISK_END        : word_t := x"04000000";
     constant PERIPHERALS_BASE   : word_t := x"04000000";
     constant PERIPHERALS_END    : word_t := x"05000000";
 
     -- tinymcu_periph.vhd's peripheral sub-ranges, within the PERIPHERALS_BASE..PERIPHERALS_END window above.
-    constant GPIO_BASE      : word_t := x"04000000";
-    constant GPIO_END       : word_t := x"040000FF";
-    constant TIMER_BASE     : word_t := x"04000100";
-    constant TIMER_END      : word_t := x"040001FF";
-    constant UART_BASE      : word_t := x"04000200";
-    constant UART_END       : word_t := x"040002FF";
+    constant GPIO_BASE          : word_t := x"04000000";
+    constant GPIO_END           : word_t := x"040000FF";
+    constant TIMER_BASE         : word_t := x"04000100";
+    constant TIMER_END          : word_t := x"040001FF";
+    constant UART_BASE          : word_t := x"04000200";
+    constant UART_END           : word_t := x"040002FF";
+    constant XIP_BASE           : word_t := x"04000300";
+    constant XIP_END            : word_t := x"040003FF";
 
     -- Instruction encoding templates (RV32I base formats), for reference.
     -- Every opcode/funct3/funct7 constant below is a field of one of these.
@@ -224,9 +243,9 @@ package tinymcu_pkg is
     );
 
     -- Sign-extends v out to width bits, replicating v's sign bit into all the new upper bits.
-    --   v     - the value to extend; its highest-indexed bit is treated as the sign bit,
-    --           regardless of v's own index range.
-    --   width - the result's width in bits (must be >= v'length).
+    --   v:     the value to extend; its highest-indexed bit is treated as the sign bit,
+    --          regardless of v's own index range.
+    --   width: the result's width in bits (must be >= v'length).
     -- Returns: v, sign-extended to width bits.
     -- Used throughout tinymcu_cpu_control.vhd for the I/S/B/J immediates and by
     -- tinymcu_cpu_alu.vhd's SEXT.B/SEXT.H (Zbb), which just sext() a narrower slice of op_a.
@@ -234,18 +253,27 @@ package tinymcu_pkg is
 
     -- Per-byte write-enable merge: for each byte lane i where ben(i) = '1', takes that byte
     -- from new_v, otherwise keeps old_v's byte.
-    --   old_v, new_v - the two values being merged; not tied to word_t or a fixed 4-lane ben,
-    --                  may be any width that's a whole multiple of 8 bits.
-    --   ben          - one bit per byte lane, i.e. exactly old_v'length/8 bits wide.
+    --   old_v, new_v: the two values being merged; not tied to word_t or a fixed 4-lane ben,
+    --                 may be any width that's a whole multiple of 8 bits.
+    --   ben:          one bit per byte lane, i.e. exactly old_v'length/8 bits wide.
     -- Returns: old_v with the ben-selected byte lanes replaced by new_v's, same width as
     -- old_v/new_v.
     -- e.g. tinymcu_periph_gpio.vhd's 32-bit registers via a 4-bit ben, but just as usable for a
     -- narrower or wider register elsewhere.
     function byte_merge(old_v, new_v : std_ulogic_vector; ben : std_ulogic_vector) return std_ulogic_vector;
 
+    -- Reverses the bit order of v, e.g. "1000" becomes "0001".
+    --   v: the value to reverse; not tied to word_t or any fixed width, may be any
+    --      std_ulogic_vector.
+    -- Returns: v with its bits in reverse order, same width as v.
+    -- e.g. tinymcu_imem_xip.vhd's LSB_FIRST config bit: each opcode/address/data BYTE needs its
+    -- own bits reversed, so it's called once per byte there, not once on the whole multi-byte
+    -- shift register; byte order itself must stay unaffected.
+    function bit_reverse(v : std_ulogic_vector) return std_ulogic_vector;
+
     -- Simulation-only helper: Used by tinymcu_cpu.vhd's optional trace generate block and by
     -- the testbenches' check()/report messages.
-    --   v - the word to format as an 8-digit uppercase hex string.
+    --   v: the word to format as an 8-digit uppercase hex string.
     -- Returns: v as an 8-character uppercase hex string, no "0x" prefix (callers that want one
     -- prepend it themselves, e.g. to_hex(...) is usually written "0x" & to_hex(v) at the call
     -- site).
@@ -257,16 +285,16 @@ package tinymcu_pkg is
     -- Simulation-only helper: formats a word as a signed decimal string,
     -- for testbench check()/report messages (usually written alongside
     -- to_hex(...), e.g. "0x" & to_hex(v) & " (" & to_dec(v) & ")").
-    --   v - the word to format, interpreted as two's-complement signed.
+    --   v: the word to format, interpreted as two's-complement signed.
     -- Returns: v's value as a signed decimal string, e.g. "-5", "42".
     function to_dec(v : word_t) return string;
 
     -- Simulation-only helper: pass/fail check for testbenches. Reports
     -- "OK <name>" or "FAIL <name>" (incrementing err_count) accordingly.
-    --   name      - the check's description, printed with the report.
-    --   cond      - the pass condition.
-    --   err_count - the calling testbench's running error counter,
-    --               incremented on failure.
+    --   name:      the check's description, printed with the report.
+    --   cond:      the pass condition.
+    --   err_count: the calling testbench's running error counter,
+    --              incremented on failure.
     procedure check(name : string; cond : boolean; variable err_count : inout integer);
 
     -- Simulation-only helper: like check() above, but for word_t
@@ -278,9 +306,9 @@ package tinymcu_pkg is
     -- Simulation-only helper: Decodes one instruction word into a RV32I (plus the implemented
     -- RV32B subset) mnemonic with ABI register names (matches objdump's default style, so it's
     -- directly comparable against a sw/*/build/main.lst).
-    --   pc    - the instruction's own address; needed (not just instr) to print absolute
-    --           branch/jump targets instead of raw offsets.
-    --   instr - the raw 32-bit instruction word to decode.
+    --   pc:    the instruction's own address; needed (not just instr) to print absolute
+    --          branch/jump targets instead of raw offsets.
+    --   instr: the raw 32-bit instruction word to decode.
     -- Returns: the decoded mnemonic and operands as one string (ABI register names,
     -- column-padded to line up like objdump's output), or ".word 0x<instr>" for anything not
     -- decoded (see below).
@@ -317,6 +345,17 @@ package body tinymcu_pkg is
             else
                 result((i * 8) + 7 downto i * 8) := ov((i * 8) + 7 downto i * 8);
             end if;
+        end loop;
+        return result;
+    end function;
+
+    function bit_reverse(v : std_ulogic_vector) return std_ulogic_vector is
+        -- Normalize to a 0-based range first, same reasoning as sext() above.
+        variable vn     : std_ulogic_vector(v'length - 1 downto 0) := v;
+        variable result : std_ulogic_vector(v'length - 1 downto 0);
+    begin
+        for i in 0 to vn'length - 1 loop
+            result(i) := vn(vn'length - 1 - i);
         end loop;
         return result;
     end function;
@@ -360,7 +399,7 @@ package body tinymcu_pkg is
     function disassemble(pc : word_t; instr : word_t) return string is
         -- Maps a 5-bit register number to its ABI name (see README.md's "Register (ABI) Names"),
         -- for disassemble()'s operand formatting.
-        --   r - the register number (instr's rd/rs1/rs2 field).
+        --   r: the register number (instr's rd/rs1/rs2 field).
         -- Returns: the register's ABI name, e.g. "zero", "ra", "t0".
         function reg_name(r : std_ulogic_vector(4 downto 0)) return string is
         begin
@@ -402,7 +441,7 @@ package body tinymcu_pkg is
 
         -- Formats a word as a signed decimal string, for disassemble()'s immediate operand
         -- formatting (objdump prints RV32I immediates in decimal, not hex).
-        --   v - the word to format, interpreted as two's-complement signed.
+        --   v: the word to format, interpreted as two's-complement signed.
         -- Returns: v's value as a signed decimal string, e.g. "-5", "42".
         function to_dec(v : word_t) return string is
         begin
@@ -510,7 +549,7 @@ package body tinymcu_pkg is
                             when "0110100" => return "binvi  " & reg_name(rd) & "," & reg_name(rs1) & "," & to_dec(shamt);
                             when "0100100" => return "bclri  " & reg_name(rd) & "," & reg_name(rs1) & "," & to_dec(shamt);
                             -- funct7 0110000 here is the five CLZ/CTZ/CPOP/SEXT.B/SEXT.H unary ops (not RORI, which is
-                            -- funct3 101, same funct7 -- see the "others" branch below), disambiguated by rs2/instr
+                            -- funct3 101, same funct7; see the "others" branch below), disambiguated by rs2/instr
                             -- (24 downto 20), same as ALU_CLZ etc.'s subfunc.
                             when "0110000" =>
                                 case rs2 is

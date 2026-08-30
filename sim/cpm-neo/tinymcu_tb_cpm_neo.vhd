@@ -74,7 +74,7 @@ begin
         wait for CLK_PERIOD * 10;
         rst <= '0';
 
-        -- Never asserted again -- see header comment.
+        -- Never asserted again, see header comment.
         wait for CLK_PERIOD * 5_000_000;
 
         report "SIM DONE (5_000_000 cycles elapsed, no further rst assert)";

@@ -35,7 +35,7 @@ LD_FILE	 := ../linker.ld
 
 # rv32im: base integer ISA plus the M extension (MUL/DIV/REM etc., see
 # ../../README.md "Extensions"); no A/F/D/C. Must match what tinymcu_cpu.vhd actually implements
-ARCH_FLAGS := -march=$(ARCH) -mabi=ilp32
+ARCH_FLAGS := -march=$(ARCH)_zicsr -mabi=ilp32
 
 WARN_FLAGS         := -Wall -Wextra
 OPT_FLAGS          := -Os -g

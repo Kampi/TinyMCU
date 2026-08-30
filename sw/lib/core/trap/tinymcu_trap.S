@@ -26,6 +26,13 @@ trap_entry:
     sw a6,  56(sp)
     sw a7,  60(sp)
 
+    # mcause/mepc read here, before tinymcu_trap_handler can run any
+    # other code that might disturb them, and passed in as its two
+    # arguments (a0/a1). The caller's own a0/a1 are already saved above
+    # and get restored from the stack below regardless, so overwriting
+    # them here for the call is safe.
+    csrr a0, mcause
+    csrr a1, mepc
     call tinymcu_trap_handler
 
     lw ra,   0(sp)

@@ -21,7 +21,10 @@
 
 static unsigned int pos = 0u;
 
-void tinymcu_trap_handler(void) {
+void tinymcu_trap_handler(unsigned int mcause, unsigned int mepc) {
+    (void)mcause;
+    (void)mepc;
+
     tinymcu_timer_irq_clear();
     tinymcu_timer_reset();
 

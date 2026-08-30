@@ -59,6 +59,7 @@ end entity tinymcu_cpu_csrfile;
 architecture tinymcu_cpu_csrfile_rtl of tinymcu_cpu_csrfile is
 
     constant CSR_MSTATUS    : std_ulogic_vector(11 downto 0) := x"300";
+    constant CSR_MISA       : std_ulogic_vector(11 downto 0) := x"301";
     constant CSR_MIE        : std_ulogic_vector(11 downto 0) := x"304";
     constant CSR_MTVEC      : std_ulogic_vector(11 downto 0) := x"305";
     constant CSR_MSCRATCH   : std_ulogic_vector(11 downto 0) := x"340";
@@ -79,6 +80,7 @@ architecture tinymcu_cpu_csrfile_rtl of tinymcu_cpu_csrfile is
     signal mtval            : word_t;
     signal mip              : word_t;
     signal mip_temp         : word_t;
+    signal misa             : word_t;
 
 begin
 
@@ -104,6 +106,7 @@ begin
             when CSR_MVENDORID  => csr_rdata_o <= MVENDORID;
             when CSR_MARCHID    => csr_rdata_o <= MARCHID;
             when CSR_MIMPID     => csr_rdata_o <= MIMPID;
+            when CSR_MISA       => csr_rdata_o <= MISA;
             when others         => csr_rdata_o <= (others => '0');
         end case;
     end process;

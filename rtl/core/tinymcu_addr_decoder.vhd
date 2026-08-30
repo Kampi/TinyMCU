@@ -11,7 +11,7 @@
 -- Description:
 --   Address range                 Target         Description
 --   0x0000_0000 - 0x00FF_FFFF     imem_req_o     Boot ROM + Flash (tinymcu_imem); ROM_BASE and
---                                                FLASH_BASE both fall inside this one window.
+--                                                XIP_FLASH_BASE both fall inside this one window.
 --   0x0200_0000 - 0x02FF_FFFF     ram_req_o      RAM (tinymcu_sram); RAM_BASE.
 --   0x0300_0000 - 0x03FF_FFFF     ramdisk_req_o  RAM disk (tinymcu_ram_subsystem's own
 --                                                tinymcu_sram instance, see tinymcu_sram.vhd).

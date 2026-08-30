@@ -4,7 +4,7 @@
  * @file tinymcu_stdio.c
  * @brief Picolibc stdout hookup: routes printf()/puts()/putchar() etc. to
  *        tinymcu_uart_putc(). Requires tinymcu_uart_init() to have been
- *        called first (not done here -- same convention as tinymcu_uart.c
+ *        called first (not done here, same convention as tinymcu_uart.c
  *        itself).
  *
  *        Unlike newlib, picolibc doesn't need a full set of POSIX syscall

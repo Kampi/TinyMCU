@@ -13,6 +13,13 @@
 --   0x0400_0000 - 0x0400_00FF     gpio_req_o    GPIO (tinymcu_periph_gpio); GPIO_BASE.
 --   0x0400_0100 - 0x0400_01FF     timer_req_o   Timer (tinymcu_periph_timer); TIMER_BASE.
 --   0x0400_0200 - 0x0400_02FF     uart_req_o    UART (tinymcu_periph_uart); UART_BASE.
+--   0x0400_0300 - 0x0400_03FF     xip_req_o     XIP config/status (tinymcu_imem_xip); XIP_BASE.
+--                                                Only mapped when XIP_ENABLE, same as
+--                                                RAMDISK_ENABLE gates the RAM disk window in
+--                                                tinymcu_addr_decoder.vhd, otherwise reads as 0
+--                                                like any other unmapped address, rather than
+--                                                exposing a register block that can never do
+--                                                anything.
 --   Any other address              -            Unmapped: reads as 0
 --
 -- Dependencies:
@@ -28,6 +35,10 @@ library tinymcu;
 use tinymcu.tinymcu_pkg.all;
 
 entity tinymcu_periph is
+    generic (
+        -- See tinymcu_cpu.vhd's own generic of the same name.
+        XIP_ENABLE : boolean := false
+    );
     port (
         -- Address Decoder-facing side
         periph_req_i : in  bus_req_t;
@@ -43,7 +54,11 @@ entity tinymcu_periph is
 
         -- UART-facing bus
         uart_req_o : out bus_req_t;
-        uart_rsp_i : in  bus_rsp_t
+        uart_rsp_i : in  bus_rsp_t;
+
+        -- XIP-facing bus (config/status only, XIP_ENABLE only)
+        xip_req_o : out bus_req_t;
+        xip_rsp_i : in  bus_rsp_t
     );
 end entity tinymcu_periph;
 
@@ -51,7 +66,8 @@ architecture tinymcu_periph_rtl of tinymcu_periph is
     -- 0 = GPIO
     -- 1 = Timer
     -- 2 = UART
-    constant BUS_MEMBERS : integer := 3;
+    -- 3 = XIP
+    constant BUS_MEMBERS : integer := 4;
 
     type port_req_t is array (BUS_MEMBERS - 1 downto 0) of bus_req_t;
     type port_rsp_t is array (BUS_MEMBERS - 1 downto 0) of bus_rsp_t;
@@ -67,6 +83,7 @@ begin
     port_sel(0) <= '1' when periph_req_i.addr(31 downto 8) = GPIO_BASE(31 downto 8)  else '0';
     port_sel(1) <= '1' when periph_req_i.addr(31 downto 8) = TIMER_BASE(31 downto 8) else '0';
     port_sel(2) <= '1' when periph_req_i.addr(31 downto 8) = UART_BASE(31 downto 8)  else '0';
+    port_sel(3) <= '1' when (XIP_ENABLE and periph_req_i.addr(31 downto 8) = XIP_BASE(31 downto 8)) else '0';
 
     gpio_req_o  <= port_req(0);
     port_rsp(0) <= gpio_rsp_i;
@@ -76,6 +93,9 @@ begin
 
     uart_req_o  <= port_req(2);
     port_rsp(2) <= uart_rsp_i;
+
+    xip_req_o   <= port_req(3);
+    port_rsp(3) <= xip_rsp_i;
 
     -- Bus request: every target gets the full request every cycle, but
     -- only the selected one gets a real strobe.
@@ -105,8 +125,8 @@ begin
         int_rsp <= rsp;
     end process;
 
-    periph_rsp_o.data <= int_rsp.data;
-    periph_rsp_o.ack  <= int_rsp.ack when (unsigned(port_sel) /= 0) else periph_req_i.stb;
-    periph_rsp_o.err  <= '0' when (unsigned(port_sel) /= 0) else '1';
+    periph_rsp_o.data   <= int_rsp.data;
+    periph_rsp_o.ack    <= int_rsp.ack when (unsigned(port_sel) /= 0) else periph_req_i.stb;
+    periph_rsp_o.err    <= '0' when (unsigned(port_sel) /= 0) else '1';
 
 end architecture tinymcu_periph_rtl;

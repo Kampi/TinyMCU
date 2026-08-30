@@ -12,7 +12,7 @@
 --  GPIO_BASE..GPIO_END (0x0400_0000..0x0400_00FF)
 --
 --  Word offset     Name            R/W     Meaning
---  0               CONFIG          RW      Bit 0 and 15:1 defined below; otherwise general-purpose, reserved for future use.
+--  0               CONFIG          RW      Configuration register
 --                                              Bit                     Description
 --                                              0                       Global interrupt enable
 --                                              15:1                    Global debounce threshold, in clock cycles (0 = disabled)

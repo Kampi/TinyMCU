@@ -16,6 +16,8 @@ void tinymcu_trap_init(void) {
     tinymcu_enable_global_interrupts();
 }
 
-void __attribute__((weak)) tinymcu_trap_handler(void) {
+void __attribute__((weak)) tinymcu_trap_handler(unsigned int mcause, unsigned int mepc) {
+    (void)mcause;
+    (void)mepc;
     /* No interrupt source enabled by default; override this. */
 }
